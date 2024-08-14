@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"sync"
 
 	"github.com/Mtze/CI-Benchmarker/executor"
 )
@@ -13,10 +14,26 @@ func main() {
 
 	he := executor.NewHadesExecutor("http://localhost:8081/build")
 
-	uuid, err := he.Execute()
-	if err != nil {
-		slog.Error("Error while executing HadesExecutor", slog.Any("error", err))
+	runBuilds(3, he)
+
+	slog.Info("Finished")
+}
+
+func runBuilds(number int, e executor.Executor) {
+	var wg sync.WaitGroup
+
+	for i := 0; i < number; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			uuid, err := e.Execute()
+			if err != nil {
+				slog.Error("Error while executing HadesExecutor", slog.Any("error", err))
+			}
+			slog.Debug("HadesExecutor executed successfully", slog.Any("uuid", uuid))
+		}()
 	}
 
-	slog.Info("HadesExecutor executed successfully", slog.Any("uuid", uuid))
+	wg.Wait()
 }

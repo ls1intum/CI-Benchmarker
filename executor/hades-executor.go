@@ -83,5 +83,7 @@ func (e *HadesExecutor) Execute() (uuid.UUID, error) {
 		return uuid.UUID{}, err
 	}
 
+	slog.Info("HadesExecutor scheduled successfully", slog.Any("jobID", jobID))
+
 	return jobID, nil
 }
