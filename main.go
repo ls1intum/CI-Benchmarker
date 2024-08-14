@@ -29,9 +29,9 @@ func runBuilds(number int, e executor.Executor) {
 			defer wg.Done()
 			uuid, err := e.Execute()
 			if err != nil {
-				slog.Error("Error while executing HadesExecutor", slog.Any("error", err))
+				slog.Error("Error while scheduling", slog.Any("error", err))
 			}
-			slog.Debug("HadesExecutor executed successfully", slog.Any("uuid", uuid))
+			slog.Debug("Job send successfully", slog.Any("uuid", uuid))
 		}()
 	}
 
