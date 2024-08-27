@@ -28,7 +28,7 @@ func runJobs(number int, e executor.Executor, persister Persister) {
 
 		go func(p Persister) {
 			defer wg.Done()
-			slog.Debug("Scheduling job %d", i)
+			slog.Debug("Scheduling job %d", slog.Any("i", i))
 			// Execute the job
 			uuid, err := e.Execute()
 			if err != nil {
