@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "CI-Benchmark",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Result
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://{{hostname}}/v1/result
+  body: json
+  auth: none
+}
+
+body:json {
+  {"uuid": "tbd"}
+}
