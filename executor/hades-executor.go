@@ -36,8 +36,16 @@ const job = `{
     "name": "Execute",
     "image": "ls1tum/artemis-maven-template:java17-18",
     "script": "set +e && cd ./shared/example || exit 0 && ./gradlew --status || exit 0 && ./gradlew clean test || exit 0"
+  },
+  {
+    "id": 3,
+    "name": "result",
+    "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
+    "metadata": {
+      "API_ENDPOINT": "http://host.docker.internal:8080/v1/result"
   }
-]
+  }
+  ]
 }`
 
 // HadesExecutor is the executor for Hades
