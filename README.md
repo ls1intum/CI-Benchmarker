@@ -1,8 +1,16 @@
 # CI-Benchmarker
 
+## Architecture
+
+![Architecture](./docs/img/benchmark-system-architecture.png)
+
 ## Usage
 
-TODO
+```bash
+docker-compose up
+```
+
+Use the [bruno](https://www.usebruno.com/) examples in the `docs` folder to test the system
 
 ## Development
 
