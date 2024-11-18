@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  benchmarker:
+    build: .
+    image: ghcr.io/mtze/ci-benchmarker/benchmarker:latest
+    container_name: benchmarker
+    ports:
+      - "8080:8080"
