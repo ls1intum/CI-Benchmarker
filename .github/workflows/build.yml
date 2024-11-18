@@ -6,9 +6,6 @@ on:
       - main
       - release/*
   push:
-    branches:
-      - main
-      - release/*
   release:
     types:
       - created
