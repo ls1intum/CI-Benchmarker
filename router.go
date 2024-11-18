@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/Mtze/CI-Benchmarker/benchmarkController"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -30,7 +31,7 @@ func startRouter() *gin.Engine {
 	version.POST("/result", handleResult)
 
 	// Register the route for the benchmark executors
-	version.POST("/benchmark/hades", benchmarkHades)
+	version.POST("/benchmark/hades", benchmarkController.BenchmarkHades)
 
 	return r
 }
@@ -57,7 +58,7 @@ func handleResult(c *gin.Context) {
 
 	time := time.Now()
 
-	persister.StoreResult(uuid, time)
+	p.StoreResult(uuid, time)
 
 	c.JSON(200, gin.H{"message": "Result received"})
 }

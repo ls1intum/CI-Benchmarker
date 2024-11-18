@@ -3,10 +3,12 @@ package main
 import (
 	"log/slog"
 	"os"
+
+	"github.com/Mtze/CI-Benchmarker/persister"
 )
 
 // Persister handle to store the job results in the database
-var persister Persister
+var p persister.Persister
 
 func main() {
 	// Set the log level to debug if the DEBUG environment variable is set to true
@@ -16,7 +18,7 @@ func main() {
 	}
 
 	slog.Debug("Creating DB persister")
-	persister = NewDBPersister()
+	p = persister.NewDBPersister()
 
 	r := startRouter()
 
