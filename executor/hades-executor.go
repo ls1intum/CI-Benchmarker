@@ -61,6 +61,10 @@ func NewHadesExecutor(hadesURL string) *HadesExecutor {
 	}
 }
 
+func (e *HadesExecutor) Name() string {
+	return "HadesExecutor"
+}
+
 func (e *HadesExecutor) Execute() (uuid.UUID, error) {
 	slog.Debug("Executing HadesExecutor")
 

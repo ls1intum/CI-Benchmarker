@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/Mtze/CI-Benchmarker/model"
+	"github.com/Mtze/CI-Benchmarker/persister/model"
 	"github.com/google/uuid"
 )
 
@@ -19,7 +19,7 @@ const file string = "benchmark.db"
 // This interface is used to store the job and the result of the job
 // This implementation allows to abstract the concrete storage mechanism
 type Persister interface {
-	StoreJob(uuid uuid.UUID, time time.Time)
+	StoreJob(uuid uuid.UUID, time time.Time, executor string)
 	StoreResult(uuid uuid.UUID, time time.Time)
 }
 
@@ -57,17 +57,18 @@ func NewDBPersister() DBPersister {
 	}
 }
 
-func (d DBPersister) StoreJob(uuid uuid.UUID, time time.Time) {
+func (d DBPersister) StoreJob(uuid uuid.UUID, time time.Time, executor string) {
 
 	d.queries.StoreScheduledJob(context.Background(), model.StoreScheduledJobParams{
-		ID:   uuid.String(),
-		Time: time.String(),
+		ID:       uuid,
+		Time:     time.String(),
+		Executor: executor,
 	})
 }
 
 func (d DBPersister) StoreResult(uuid uuid.UUID, time time.Time) {
 	d.queries.StoreJobResult(context.Background(), model.StoreJobResultParams{
-		ID:   uuid.String(),
+		ID:   uuid,
 		Time: time.String(),
 	})
 

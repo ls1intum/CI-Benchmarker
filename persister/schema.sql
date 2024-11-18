@@ -1,9 +1,11 @@
 CREATE TABLE scheduled_job (
-  id   string PRIMARY KEY,
-  time text    NOT NULL
+  id        uuid  PRIMARY KEY,
+  time      text    NOT NULL,
+  executor  text    NOT NULL, 
+  metadata  jsonb
 );
 
 CREATE TABLE job_results (
-  id   string PRIMARY KEY,
-  time text    NOT NULL
+  id        uuid  PRIMARY KEY,
+  time      text    NOT NULL
 );

@@ -68,7 +68,7 @@ func (b Benchmark) run() {
 
 			// Store the job
 			slog.Debug("Storing job", slog.Any("uuid", uuid))
-			p.StoreJob(uuid, time.Now())
+			p.StoreJob(uuid, time.Now(), b.Executor.Name())
 
 			slog.Debug("Job send successfully", slog.Any("uuid", uuid))
 		}(b.Persister)
