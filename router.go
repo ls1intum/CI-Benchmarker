@@ -31,7 +31,7 @@ func startRouter() *gin.Engine {
 	version.POST("/result", handleResult)
 
 	// Register the route for the benchmark executors
-	version.POST("/benchmark/hades", benchmarkController.BenchmarkHades)
+	version.POST("/benchmark/hades", benchmarkController.NewHadesBenchmark().HandleFunc)
 
 	return r
 }

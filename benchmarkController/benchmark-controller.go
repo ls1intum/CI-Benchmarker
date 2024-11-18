@@ -2,11 +2,13 @@ package benchmarkController
 
 import (
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/Mtze/CI-Benchmarker/executor"
 	"github.com/Mtze/CI-Benchmarker/persister"
+	"github.com/gin-gonic/gin"
 )
 
 // Benchmark represents a benchmarking process that includes an executor to run the benchmarks,
@@ -17,6 +19,30 @@ type Benchmark struct {
 	JobCounter int
 }
 
+// HandleFunc is a handler function that receives a request to start a benchmark. It parses the
+// number of jobs to run from the request, runs the benchmark, and returns a response to the client.
+// The function assumes that the Executor and Persister fields of the Benchmark struct are already
+// initialized.
+func (b Benchmark) HandleFunc(c *gin.Context) {
+	slog.Info("Received request to start benchmark")
+
+	// Get number of jobs to run
+	countStr := c.DefaultQuery("count", "1")
+	count, err := strconv.Atoi(countStr)
+	if err != nil {
+		slog.Error("Failed to parse count", slog.Any("error", err))
+		c.JSON(400, gin.H{"error": "Failed to parse count"})
+		return
+	}
+
+	// Run the benchmark
+	slog.Debug("Running jobs", slog.Any("count", count))
+	b.JobCounter = count
+	b.run()
+
+	c.JSON(200, gin.H{"message": "Benchmark started"})
+}
+
 // run executes the benchmark jobs concurrently. It logs the start of job execution,
 // schedules each job, executes it using the provided executor, and stores the job
 // result using the persister. It waits for all jobs to complete before returning.
@@ -25,7 +51,7 @@ type Benchmark struct {
 // scheduling, any errors encountered during execution, and the successful storage
 // of job results.
 func (b Benchmark) run() {
-	slog.Debug("Running jobs", slog.Any("number", b.JobCounter), slog.Any("executor", b.Executor))
+	slog.Info("Running jobs", slog.Any("number", b.JobCounter), slog.Any("executor", b.Executor))
 	var wg sync.WaitGroup
 
 	for i := 0; i < b.JobCounter; i++ {
