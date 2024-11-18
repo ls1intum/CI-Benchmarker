@@ -2,14 +2,11 @@ package main
 
 import (
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-var persister Persister
 
 type ResultMetadata struct {
 	JobName                  string `json:"jobName" env:"JOB_NAME"`
@@ -22,41 +19,20 @@ type ResultMetadata struct {
 }
 
 func startRouter() *gin.Engine {
-	// Create a db instance - ugly hack - should be refactored
-	slog.Debug("Creating DB persister")
-	persister = NewDBPersister()
-
 	slog.Debug("Setting up router")
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
 	version := r.Group("/v1")
 
-	// Define the route for the result
+	// Register the route for the result
 	slog.Debug("Setting up routes")
 	version.POST("/result", handleResult)
+
+	// Register the route for the benchmark executors
 	version.POST("/benchmark/hades", benchmarkHades)
 
 	return r
-}
-
-func benchmarkHades(c *gin.Context) {
-	slog.Debug("Received request to start Hades test")
-	// Get number of jobs to run
-	countStr := c.DefaultQuery("count", "1")
-	count, err := strconv.Atoi(countStr)
-	if err != nil {
-		slog.Error("Failed to parse count", slog.Any("error", err))
-		c.JSON(400, gin.H{"error": "Failed to parse count"})
-		return
-	}
-
-	// Run the Hades test
-	slog.Debug("Running Hades jobs", slog.Any("count", count))
-	HadesTest(count)
-
-	c.JSON(200, gin.H{"message": "Hades test started"})
-
 }
 
 // handleResult is a function to handle the result of a job

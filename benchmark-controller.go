@@ -2,10 +2,12 @@ package main
 
 import (
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/Mtze/CI-Benchmarker/executor"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -13,10 +15,29 @@ const (
 )
 
 // Creates an Hades executor and runs the specified number of jobs
-func HadesTest(number int) {
+func HadesBenchmarkExecutor(number int) {
 	he := executor.NewHadesExecutor(hades_host)
 	p := NewDBPersister()
 	runJobs(number, he, p)
+}
+
+func benchmarkHades(c *gin.Context) {
+	slog.Debug("Received request to start Hades test")
+	// Get number of jobs to run
+	countStr := c.DefaultQuery("count", "1")
+	count, err := strconv.Atoi(countStr)
+	if err != nil {
+		slog.Error("Failed to parse count", slog.Any("error", err))
+		c.JSON(400, gin.H{"error": "Failed to parse count"})
+		return
+	}
+
+	// Run the Hades test
+	slog.Debug("Running Hades jobs", slog.Any("count", count))
+	HadesBenchmarkExecutor(count)
+
+	c.JSON(200, gin.H{"message": "Hades test started"})
+
 }
 
 func runJobs(number int, e executor.Executor, persister Persister) {
