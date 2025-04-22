@@ -19,8 +19,8 @@ const file string = "benchmark.db"
 // This interface is used to store the job and the result of the job
 // This implementation allows to abstract the concrete storage mechanism
 type Persister interface {
-	StoreJob(uuid uuid.UUID, time time.Time, executor string)
-	StoreResult(uuid uuid.UUID, time time.Time)
+	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string)
+	StoreResult(uuid uuid.UUID, startTime time.Time, endTime time.Time)
 }
 
 // DBPersister is a concrete implementation of the Persister interface
@@ -57,19 +57,19 @@ func NewDBPersister() DBPersister {
 	}
 }
 
-func (d DBPersister) StoreJob(uuid uuid.UUID, time time.Time, executor string) {
+func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string) {
 
 	d.queries.StoreScheduledJob(context.Background(), model.StoreScheduledJobParams{
-		ID:       uuid,
-		Time:     time.String(),
-		Executor: executor,
+		ID:           uuid,
+		CreationTime: creationTime.String(),
+		Executor:     executor,
 	})
 }
 
-func (d DBPersister) StoreResult(uuid uuid.UUID, time time.Time) {
+func (d DBPersister) StoreResult(uuid uuid.UUID, startTime time.Time, endTime time.Time) {
 	d.queries.StoreJobResult(context.Background(), model.StoreJobResultParams{
-		ID:   uuid,
-		Time: time.String(),
+		ID:        uuid,
+		StartTime: startTime.String(),
+		EndTime:   endTime.String(),
 	})
-
 }

@@ -1,6 +1,6 @@
 -- name: StoreScheduledJobWithMetadata :one
 INSERT INTO scheduled_job (
-  id, time, executor, metadata
+  id, creation_time, executor, metadata
 ) VALUES (
   ?, ?, ?, ?
 )
@@ -8,7 +8,7 @@ RETURNING *;
 
 -- name: StoreScheduledJob :one
 INSERT INTO scheduled_job (
-  id, time, executor
+  id, creation_time, executor
 ) VALUES (
   ?, ?, ?
 )
@@ -16,8 +16,8 @@ RETURNING *;
 
 -- name: StoreJobResult :one
 INSERT INTO job_results (
-  id, time
+  id, start_time, end_time
 ) VALUES (
-  ?, ?
+  ?, ?, ?
 )
 RETURNING *;
