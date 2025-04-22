@@ -1,13 +1,14 @@
 package main
 
 import (
+	"github.com/joho/godotenv"
 	"log/slog"
 	"os"
 
 	"github.com/Mtze/CI-Benchmarker/persister"
 )
 
-// Persister handle to store the job results in the database
+// Persister handles to store the job results in the database
 var p persister.Persister
 
 func main() {
@@ -22,6 +23,16 @@ func main() {
 
 	r := startRouter()
 
-	// TODO: Add this to a configuration file
-	r.Run(":8080")
+	if err := godotenv.Load(); err != nil {
+		slog.Warn("No .env file found, using default configuration")
+	}
+	address := os.Getenv("SERVER_ADDRESS")
+	if address == "" {
+		address = ":8080" // default port
+	}
+	err := r.Run(address)
+	if err != nil {
+		slog.Error("Failed to start server", slog.Any("error", err))
+		return
+	}
 }

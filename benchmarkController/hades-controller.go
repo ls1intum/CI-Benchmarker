@@ -2,15 +2,20 @@ package benchmarkController
 
 import (
 	"log/slog"
+	"os"
 
 	"github.com/Mtze/CI-Benchmarker/executor"
 	"github.com/Mtze/CI-Benchmarker/persister"
 )
 
-const (
-	//TODO: read this from config
-	hades_host = "http://localhost:8081/build"
-)
+var hades_host = os.Getenv("HADES_HOST")
+
+func init() {
+	if hades_host == "" {
+		slog.Error("Environment variable HADES_HOST is not set")
+		panic("HADES_HOST is required but not set")
+	}
+}
 
 func NewHadesBenchmark() Benchmark {
 	slog.Debug("Creating new Hades benchmark")
