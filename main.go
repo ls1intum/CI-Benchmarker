@@ -30,7 +30,7 @@ func main() {
 	if address == "" {
 		address = ":8080" // default port
 	}
-	err := r.Run(address)
+	err := r.Run(":" + address)
 	if err != nil {
 		slog.Error("Failed to start server", slog.Any("error", err))
 		return
