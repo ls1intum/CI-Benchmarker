@@ -1,7 +1,9 @@
 package benchmarkController
 
 import (
+	"github.com/ls1intum/hades/shared/payload"
 	"log/slog"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"github.com/Mtze/CI-Benchmarker/executor"
 	"github.com/Mtze/CI-Benchmarker/persister"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 // Benchmark represents a benchmarking process that includes an executor to run the benchmarks,
@@ -24,6 +27,13 @@ type Benchmark struct {
 // The function assumes that the Executor and Persister fields of the Benchmark struct are already
 // initialized.
 func (b Benchmark) HandleFunc(c *gin.Context) {
+	var payload payload.RESTPayload
+	if err := c.ShouldBind(&payload); err != nil {
+		log.WithError(err).Error("Failed to bind JSON")
+		c.String(http.StatusBadRequest, "Failed to bind JSON")
+		return
+	}
+
 	slog.Info("Received request to start benchmark")
 
 	// Get number of jobs to run
@@ -38,7 +48,7 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 	// Run the benchmark
 	slog.Debug("Running jobs", slog.Any("count", count))
 	b.JobCounter = count
-	b.run()
+	b.run(payload)
 
 	c.JSON(200, gin.H{"message": "Benchmark started"})
 }
@@ -50,7 +60,7 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 // The function logs various stages of job execution, including the start of job
 // scheduling, any errors encountered during execution, and the successful storage
 // of job results.
-func (b Benchmark) run() {
+func (b Benchmark) run(payload payload.RESTPayload) {
 	slog.Info("Running jobs", slog.Any("number", b.JobCounter), slog.Any("executor", b.Executor))
 	var wg sync.WaitGroup
 
@@ -61,7 +71,7 @@ func (b Benchmark) run() {
 			defer wg.Done()
 			slog.Debug("Scheduling job %d", slog.Any("i", i))
 			// Execute the job
-			uuid, err := b.Executor.Execute()
+			uuid, err := b.Executor.Execute(payload)
 			if err != nil {
 				slog.Error("Error while scheduling", slog.Any("error", err))
 			}
