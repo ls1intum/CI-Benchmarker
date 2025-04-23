@@ -27,8 +27,8 @@ type Benchmark struct {
 // The function assumes that the Executor and Persister fields of the Benchmark struct are already
 // initialized.
 func (b Benchmark) HandleFunc(c *gin.Context) {
-	var payload payload.RESTPayload
-	if err := c.ShouldBind(&payload); err != nil {
+	var restPayload payload.RESTPayload
+	if err := c.ShouldBind(&restPayload); err != nil {
 		log.WithError(err).Error("Failed to bind JSON")
 		c.String(http.StatusBadRequest, "Failed to bind JSON")
 		return
@@ -36,7 +36,7 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 
 	slog.Info("Received request to start benchmark")
 
-	// Get number of jobs to run
+	// Get the number of jobs to run
 	countStr := c.DefaultQuery("count", "1")
 	count, err := strconv.Atoi(countStr)
 	if err != nil {
@@ -48,7 +48,7 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 	// Run the benchmark
 	slog.Debug("Running jobs", slog.Any("count", count))
 	b.JobCounter = count
-	b.run(payload)
+	b.run(restPayload)
 
 	c.JSON(200, gin.H{"message": "Benchmark started"})
 }

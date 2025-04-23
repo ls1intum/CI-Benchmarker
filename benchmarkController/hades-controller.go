@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-var hades_host string
+var hadesHost string
 
 func init() {
 	// Load .env file
@@ -17,8 +17,8 @@ func init() {
 		slog.Warn("No .env file found or failed to load it")
 	}
 
-	hades_host = os.Getenv("HADES_HOST")
-	if hades_host == "" {
+	hadesHost = os.Getenv("HADES_HOST")
+	if hadesHost == "" {
 		slog.Error("Environment variable HADES_HOST is not set")
 		panic("HADES_HOST is required but not set")
 	}
@@ -27,7 +27,7 @@ func init() {
 func NewHadesBenchmark() Benchmark {
 	slog.Debug("Creating new Hades benchmark")
 	return Benchmark{
-		Executor:  executor.NewHadesExecutor(hades_host),
+		Executor:  executor.NewHadesExecutor(hadesHost),
 		Persister: persister.NewDBPersister(),
 	}
 }
