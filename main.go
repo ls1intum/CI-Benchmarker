@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/joho/godotenv"
+	"github.com/Mtze/CI-Benchmarker/shared/config"
 	"log/slog"
 	"os"
 
@@ -23,14 +23,9 @@ func main() {
 
 	r := startRouter()
 
-	if err := godotenv.Load(); err != nil {
-		slog.Warn("No .env file found, using default configuration")
-	}
-	address := os.Getenv("SERVER_ADDRESS")
-	if address == "" {
-		address = ":8080" // default port
-	}
-	err := r.Run(":" + address)
+	cfg := config.Load()
+
+	err := r.Run(":" + cfg.ServerAddress)
 	if err != nil {
 		slog.Error("Failed to start server", slog.Any("error", err))
 		return
