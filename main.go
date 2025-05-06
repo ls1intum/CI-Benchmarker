@@ -1,13 +1,14 @@
 package main
 
 import (
+	"github.com/Mtze/CI-Benchmarker/shared/config"
 	"log/slog"
 	"os"
 
 	"github.com/Mtze/CI-Benchmarker/persister"
 )
 
-// Persister handle to store the job results in the database
+// Persister handles to store the job results in the database
 var p persister.Persister
 
 func main() {
@@ -22,6 +23,11 @@ func main() {
 
 	r := startRouter()
 
-	// TODO: Add this to a configuration file
-	r.Run(":8080")
+	cfg := config.Load()
+
+	err := r.Run(":" + cfg.ServerAddress)
+	if err != nil {
+		slog.Error("Failed to start server", slog.Any("error", err))
+		return
+	}
 }

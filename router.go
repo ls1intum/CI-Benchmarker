@@ -26,7 +26,7 @@ func startRouter() *gin.Engine {
 
 	version := r.Group("/v1")
 
-	// Register the route for the result
+	// Register the route for the start of the job
 	slog.Debug("Setting up routes")
 	version.POST("/result", handleResult)
 
@@ -56,9 +56,17 @@ func handleResult(c *gin.Context) {
 		return
 	}
 
-	time := time.Now()
+	currentTime := time.Now()
 
-	p.StoreResult(uuid, time)
+	buildCompletionTime, err := time.Parse(time.RFC3339, resultMetadata.BuildCompletionTime)
+	if err != nil {
+		slog.Error("Failed to parse BuildCompletionTime", slog.Any("error", err))
+		c.JSON(400, gin.H{"error": "Failed to parse BuildCompletionTime"})
+		return
+	}
+	buildStartTime := buildCompletionTime.Add(-time.Since(time.Now()))
+
+	p.StoreResult(uuid, buildStartTime, currentTime)
 
 	c.JSON(200, gin.H{"message": "Result received"})
 }

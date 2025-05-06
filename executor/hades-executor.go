@@ -7,46 +7,8 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/ls1intum/hades/shared/payload"
 )
-
-const job = `{
-"name": "Example Job",
-"metadata": {
-  "GLOBAL": "test"
-},
-"timestamp": "2021-01-01T00:00:00.000Z",
-"priority": 3, 
-"steps": [
-  {
-    "id": 1,
-    "name": "Clone",
-    "image": "ghcr.io/ls1intum/hades/hades-clone-container:latest",
-    "metadata": {
-      "REPOSITORY_DIR": "/shared",
-      "HADES_TEST_URL": "https://github.com/Mtze/Artemis-Java-Test.git",
-      "HADES_TEST_PATH": "./example",
-      "HADES_TEST_ORDER": "1",
-      "HADES_ASSIGNMENT_URL": "https://github.com/Mtze/Artemis-Java-Solution.git",
-      "HADES_ASSIGNMENT_PATH": "./example/assignment",
-      "HADES_ASSIGNMENT_ORDER": "2"
-    }
-  },
-  {
-    "id": 2,
-    "name": "Execute",
-    "image": "ls1tum/artemis-maven-template:java17-18",
-    "script": "set +e && cd ./shared/example || exit 0 && ./gradlew --status || exit 0 && ./gradlew clean test || exit 0"
-  },
-  {
-    "id": 3,
-    "name": "result",
-    "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
-    "metadata": {
-      "API_ENDPOINT": "http://host.docker.internal:8080/v1/result"
-  }
-  }
-  ]
-}`
 
 // HadesExecutor is the executor for Hades
 type HadesExecutor struct {
@@ -65,11 +27,17 @@ func (e *HadesExecutor) Name() string {
 	return "HadesExecutor"
 }
 
-func (e *HadesExecutor) Execute() (uuid.UUID, error) {
+func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, error) {
 	slog.Debug("Executing HadesExecutor")
 
+	jobPayloadBytes, err := json.Marshal(jobPayload)
+	if err != nil {
+		slog.Debug("Error while marshalling job payload")
+		return uuid.UUID{}, err
+	}
+
 	// schedule job - send the http post request to hades
-	resp, err := http.Post(e.HadesURL, "application/json", bytes.NewBufferString(job))
+	resp, err := http.Post(e.HadesURL, "application/json", bytes.NewBufferString(string(jobPayloadBytes)))
 	if err != nil {
 		slog.Debug("Error while sending POST request to Hades")
 		return uuid.UUID{}, err
