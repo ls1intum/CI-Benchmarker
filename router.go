@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/Mtze/CI-Benchmarker/MetricsController"
 	"github.com/Mtze/CI-Benchmarker/benchmarkController"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -32,6 +33,10 @@ func startRouter() *gin.Engine {
 
 	// Register the route for the benchmark executors
 	version.POST("/benchmark/hades", benchmarkController.NewHadesBenchmark().HandleFunc)
+
+	version.GET("/histogram/queue_latency", MetricsController.GetQueueLatencyMetrics)
+
+	version.GET("/histogram/build_time", MetricsController.GetBuildTimeHistogram)
 
 	return r
 }

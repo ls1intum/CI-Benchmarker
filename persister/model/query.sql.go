@@ -11,6 +11,76 @@ import (
 	"github.com/google/uuid"
 )
 
+const getBuildTimes = `-- name: GetBuildTimes :many
+SELECT
+    CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
+FROM
+    job_results r
+WHERE
+    r.start_time IS NOT NULL AND r.end_time IS NOT NULL
+ORDER BY
+    build_time DESC
+`
+
+func (q *Queries) GetBuildTimes(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getBuildTimes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var build_time int64
+		if err := rows.Scan(&build_time); err != nil {
+			return nil, err
+		}
+		items = append(items, build_time)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getQueueLatencies = `-- name: GetQueueLatencies :many
+SELECT
+    CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS queue_latency
+FROM
+    scheduled_job s
+        INNER JOIN
+    job_results r ON s.id = r.id
+WHERE
+    r.start_time IS NOT NULL
+ORDER BY
+    queue_latency DESC
+`
+
+func (q *Queries) GetQueueLatencies(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getQueueLatencies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var queue_latency int64
+		if err := rows.Scan(&queue_latency); err != nil {
+			return nil, err
+		}
+		items = append(items, queue_latency)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const storeJobResult = `-- name: StoreJobResult :one
 INSERT INTO job_results (
   id, start_time, end_time

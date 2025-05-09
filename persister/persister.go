@@ -73,3 +73,19 @@ func (d DBPersister) StoreResult(uuid uuid.UUID, startTime time.Time, endTime ti
 		EndTime:   endTime.String(),
 	})
 }
+
+func (d DBPersister) GetQueueLatencies() ([]int64, error) {
+	latencies, err := d.queries.GetQueueLatencies(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return latencies, nil
+}
+
+func (d DBPersister) GetBuildTimes() ([]int64, error) {
+	buildTimes, err := d.queries.GetBuildTimes(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return buildTimes, nil
+}
