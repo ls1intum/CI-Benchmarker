@@ -108,3 +108,39 @@ func (d DBPersister) GetBuildTimesInRange(from, to *time.Time) ([]int64, error) 
 
 	return d.queries.GetBuildTimesInRange(ctx, params)
 }
+
+func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time) ([]int64, error) {
+	ctx := context.Background()
+
+	params := model.GetQueueLatencySummaryInRangeParams{
+		From: nil,
+		To:   nil,
+	}
+
+	if from != nil {
+		params.From = sql.NullTime{Time: *from, Valid: true}
+	}
+	if to != nil {
+		params.To = sql.NullTime{Time: *to, Valid: true}
+	}
+
+	return d.queries.GetQueueLatencySummaryInRange(ctx, params)
+}
+
+func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time) ([]int64, error) {
+	ctx := context.Background()
+
+	params := model.GetBuildTimeSummaryInRangeParams{
+		From: nil,
+		To:   nil,
+	}
+
+	if from != nil {
+		params.From = sql.NullTime{Time: *from, Valid: true}
+	}
+	if to != nil {
+		params.To = sql.NullTime{Time: *to, Valid: true}
+	}
+
+	return d.queries.GetBuildTimeSummaryInRange(ctx, params)
+}

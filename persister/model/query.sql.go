@@ -11,6 +11,48 @@ import (
 	"github.com/google/uuid"
 )
 
+const getBuildTimeSummaryInRange = `-- name: GetBuildTimeSummaryInRange :many
+SELECT
+    CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
+FROM
+    job_results r
+WHERE
+    r.start_time IS NOT NULL
+  AND r.end_time IS NOT NULL
+  AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
+  AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
+ORDER BY
+    build_time ASC
+`
+
+type GetBuildTimeSummaryInRangeParams struct {
+	From interface{} `json:"from"`
+	To   interface{} `json:"to"`
+}
+
+func (q *Queries) GetBuildTimeSummaryInRange(ctx context.Context, arg GetBuildTimeSummaryInRangeParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getBuildTimeSummaryInRange, arg.From, arg.To)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var build_time int64
+		if err := rows.Scan(&build_time); err != nil {
+			return nil, err
+		}
+		items = append(items, build_time)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getBuildTimesInRange = `-- name: GetBuildTimesInRange :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
@@ -86,6 +128,48 @@ func (q *Queries) GetQueueLatenciesInRange(ctx context.Context, arg GetQueueLate
 			return nil, err
 		}
 		items = append(items, queue_latency)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getQueueLatencySummaryInRange = `-- name: GetQueueLatencySummaryInRange :many
+SELECT
+    CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS latency
+FROM
+    scheduled_job s
+        INNER JOIN job_results r ON s.id = r.id
+WHERE
+    r.start_time IS NOT NULL
+  AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
+  AND (datetime(r.start_time) <= datetime(?2) OR ?2 IS NULL)
+ORDER BY
+    latency ASC
+`
+
+type GetQueueLatencySummaryInRangeParams struct {
+	From interface{} `json:"from"`
+	To   interface{} `json:"to"`
+}
+
+func (q *Queries) GetQueueLatencySummaryInRange(ctx context.Context, arg GetQueueLatencySummaryInRangeParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getQueueLatencySummaryInRange, arg.From, arg.To)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var latency int64
+		if err := rows.Scan(&latency); err != nil {
+			return nil, err
+		}
+		items = append(items, latency)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
