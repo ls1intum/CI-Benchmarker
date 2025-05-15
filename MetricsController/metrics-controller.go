@@ -3,6 +3,7 @@ package MetricsController
 import (
 	"bytes"
 	"github.com/Mtze/CI-Benchmarker/persister"
+	"github.com/Mtze/CI-Benchmarker/shared/utils"
 	"github.com/gin-gonic/gin"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
@@ -13,9 +14,13 @@ import (
 )
 
 func GetQueueLatencyMetrics(c *gin.Context) {
-	p := persister.NewDBPersister()
+	from, to, ok := utils.ParseTimeParams(c)
+	if !ok {
+		return
+	}
 
-	latencies, err := p.GetQueueLatencies()
+	p := persister.NewDBPersister()
+	latencies, err := p.GetQueueLatenciesInRange(from, to)
 	if err != nil {
 		log.Println("Error fetching queue latencies:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latencies"})
@@ -59,9 +64,13 @@ func GetQueueLatencyMetrics(c *gin.Context) {
 }
 
 func GetBuildTimeHistogram(c *gin.Context) {
-	p := persister.NewDBPersister()
+	from, to, ok := utils.ParseTimeParams(c)
+	if !ok {
+		return
+	}
 
-	buildTimes, err := p.GetBuildTimes()
+	p := persister.NewDBPersister()
+	buildTimes, err := p.GetBuildTimesInRange(from, to)
 	if err != nil {
 		log.Println("Error fetching build times:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build times"})
@@ -83,7 +92,7 @@ func GetBuildTimeHistogram(c *gin.Context) {
 	pg.X.Label.Text = "Build Time (s)"
 	pg.Y.Label.Text = "Frequency"
 
-	h, err := plotter.NewHist(values, 20) // 20 个区间
+	h, err := plotter.NewHist(values, 20)
 	if err != nil {
 		log.Fatal(err)
 	}

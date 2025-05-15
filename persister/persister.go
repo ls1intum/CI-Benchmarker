@@ -58,10 +58,9 @@ func NewDBPersister() DBPersister {
 }
 
 func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string) {
-
 	d.queries.StoreScheduledJob(context.Background(), model.StoreScheduledJobParams{
 		ID:           uuid,
-		CreationTime: creationTime.String(),
+		CreationTime: creationTime.UTC().Format("2006-01-02 15:04:05"),
 		Executor:     executor,
 	})
 }
@@ -69,23 +68,43 @@ func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor s
 func (d DBPersister) StoreResult(uuid uuid.UUID, startTime time.Time, endTime time.Time) {
 	d.queries.StoreJobResult(context.Background(), model.StoreJobResultParams{
 		ID:        uuid,
-		StartTime: startTime.String(),
-		EndTime:   endTime.String(),
+		StartTime: startTime.UTC().Format("2006-01-02 15:04:05"),
+		EndTime:   endTime.UTC().Format("2006-01-02 15:04:05"),
 	})
 }
 
-func (d DBPersister) GetQueueLatencies() ([]int64, error) {
-	latencies, err := d.queries.GetQueueLatencies(context.Background())
-	if err != nil {
-		return nil, err
+func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time) ([]int64, error) {
+	ctx := context.Background()
+
+	params := model.GetQueueLatenciesInRangeParams{
+		From: nil,
+		To:   nil,
 	}
-	return latencies, nil
+
+	if from != nil {
+		params.From = from.UTC().Format("2006-01-02 15:04:05")
+	}
+	if to != nil {
+		params.To = to.UTC().Format("2006-01-02 15:04:05")
+	}
+
+	return d.queries.GetQueueLatenciesInRange(ctx, params)
 }
 
-func (d DBPersister) GetBuildTimes() ([]int64, error) {
-	buildTimes, err := d.queries.GetBuildTimes(context.Background())
-	if err != nil {
-		return nil, err
+func (d DBPersister) GetBuildTimesInRange(from, to *time.Time) ([]int64, error) {
+	ctx := context.Background()
+
+	params := model.GetBuildTimesInRangeParams{
+		From: nil,
+		To:   nil,
 	}
-	return buildTimes, nil
+
+	if from != nil {
+		params.From = from.UTC().Format("2006-01-02 15:04:05")
+	}
+	if to != nil {
+		params.To = to.UTC().Format("2006-01-02 15:04:05")
+	}
+
+	return d.queries.GetBuildTimesInRange(ctx, params)
 }

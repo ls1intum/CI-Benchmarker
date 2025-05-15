@@ -11,19 +11,27 @@ import (
 	"github.com/google/uuid"
 )
 
-const getBuildTimes = `-- name: GetBuildTimes :many
+const getBuildTimesInRange = `-- name: GetBuildTimesInRange :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
     job_results r
 WHERE
-    r.start_time IS NOT NULL AND r.end_time IS NOT NULL
+    r.start_time IS NOT NULL
+  AND r.end_time IS NOT NULL
+  AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
+  AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
 ORDER BY
     build_time DESC
 `
 
-func (q *Queries) GetBuildTimes(ctx context.Context) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getBuildTimes)
+type GetBuildTimesInRangeParams struct {
+	From interface{} `json:"from"`
+	To   interface{} `json:"to"`
+}
+
+func (q *Queries) GetBuildTimesInRange(ctx context.Context, arg GetBuildTimesInRangeParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getBuildTimesInRange, arg.From, arg.To)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +53,7 @@ func (q *Queries) GetBuildTimes(ctx context.Context) ([]int64, error) {
 	return items, nil
 }
 
-const getQueueLatencies = `-- name: GetQueueLatencies :many
+const getQueueLatenciesInRange = `-- name: GetQueueLatenciesInRange :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS queue_latency
 FROM
@@ -54,12 +62,19 @@ FROM
     job_results r ON s.id = r.id
 WHERE
     r.start_time IS NOT NULL
+  AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
+  AND (datetime(r.start_time) <= datetime(?2) OR ?2 IS NULL)
 ORDER BY
     queue_latency DESC
 `
 
-func (q *Queries) GetQueueLatencies(ctx context.Context) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getQueueLatencies)
+type GetQueueLatenciesInRangeParams struct {
+	From interface{} `json:"from"`
+	To   interface{} `json:"to"`
+}
+
+func (q *Queries) GetQueueLatenciesInRange(ctx context.Context, arg GetQueueLatenciesInRangeParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getQueueLatenciesInRange, arg.From, arg.To)
 	if err != nil {
 		return nil, err
 	}
