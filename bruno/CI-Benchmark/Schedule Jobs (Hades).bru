@@ -20,7 +20,7 @@ body:json {
     "metadata": {
       "GLOBAL": "test"
     },
-    "timestamp": "2025-05-11T20:20:39Z",
+    "timestamp": "2021-01-01T00:00:00.000Z",
     "priority": 3, // optional, default 3
     "steps": [
       {
@@ -46,6 +46,17 @@ body:json {
         "name": "Execute",
         "image": "ls1tum/artemis-maven-template:java17-18", // mandatory
         "script": "set +e && cd ./shared/example || exit 0 && ./gradlew --status || exit 0 && ./gradlew clean test || exit 0"
+      },
+      {
+        "id": 3,
+        "name": "Result",
+        "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
+        "metadata": {
+          "API_ENDPOINT": "http://hades-benchmarker.wei-tech.site/v1/result",
+          "INGEST_DIR":"./shared/example",
+          "HADES_TEST_PATH": "./example",
+          "HADES_ASSIGNMENT_PATH": "./example/assignment"
+        }
       }
     ]
   }
