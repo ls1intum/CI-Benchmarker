@@ -1,2 +1,5 @@
 benchmark.db
 **.bkp
+.idea
+.vscode
+.env
