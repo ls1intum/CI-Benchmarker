@@ -16,23 +16,25 @@ import (
 )
 
 type LatencySummary struct {
-	TotalJobs  int   `json:"total_jobs"`
-	Average    int64 `json:"average"`
-	Median     int64 `json:"median"`
-	Q25        int64 `json:"q25"`
-	Q75        int64 `json:"q75"`
-	MaxLatency int64 `json:"max"`
-	MinLatency int64 `json:"min"`
+	Description string `json:"description"`
+	TotalJobs   int    `json:"total_jobs"`
+	Average     int64  `json:"average"`
+	Median      int64  `json:"median"`
+	Q25         int64  `json:"q25"`
+	Q75         int64  `json:"q75"`
+	MaxLatency  int64  `json:"max"`
+	MinLatency  int64  `json:"min"`
 }
 
 type BuildTimeSummary struct {
-	TotalJobs    int   `json:"total_jobs"`
-	Average      int64 `json:"average"`
-	Median       int64 `json:"median"`
-	Q25          int64 `json:"q25"`
-	Q75          int64 `json:"q75"`
-	MaxBuildTime int64 `json:"max"`
-	MinBuildTime int64 `json:"min"`
+	Description  string `json:"description"`
+	TotalJobs    int    `json:"total_jobs"`
+	Average      int64  `json:"average"`
+	Median       int64  `json:"median"`
+	Q25          int64  `json:"q25"`
+	Q75          int64  `json:"q75"`
+	MaxBuildTime int64  `json:"max"`
+	MinBuildTime int64  `json:"min"`
 }
 
 func GetQueueLatencyHistogram(c *gin.Context) {
@@ -164,14 +166,17 @@ func GetQueueLatencyMetrics(c *gin.Context) {
 	maxLatency := latencies[n-1]
 	minLatency := latencies[0]
 
+	description := "Queue Latency Summary representing the time taken for jobs to be queued before execution with seconds as unit."
+
 	summary := LatencySummary{
-		TotalJobs:  n,
-		Average:    average,
-		Median:     median,
-		Q25:        q25,
-		Q75:        q75,
-		MaxLatency: maxLatency,
-		MinLatency: minLatency,
+		Description: description,
+		TotalJobs:   n,
+		Average:     average,
+		Median:      median,
+		Q25:         q25,
+		Q75:         q75,
+		MaxLatency:  maxLatency,
+		MinLatency:  minLatency,
 	}
 
 	c.JSON(http.StatusOK, summary)
@@ -206,7 +211,10 @@ func GetBuildTimeMetrics(c *gin.Context) {
 	maxBuildTime := buildTimes[n-1]
 	minBuildTime := buildTimes[0]
 
+	description := "Build Time Summary from representing the time taken for jobs to complete execution with seconds as unit."
+
 	summary := BuildTimeSummary{
+		Description:  description,
 		TotalJobs:    n,
 		Average:      average,
 		Median:       median,

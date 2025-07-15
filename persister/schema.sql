@@ -9,6 +9,6 @@ CREATE TABLE scheduled_job
 CREATE TABLE job_results
 (
     id         uuid PRIMARY KEY,
-    start_time text NOT NULL,
-    end_time   text NOT NULL
+    start_time timestamp NULL,
+    end_time   timestamp NULL
 );

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/Mtze/CI-Benchmarker/shared/config"
 	"log/slog"
 	"os"
 
@@ -23,9 +22,7 @@ func main() {
 
 	r := startRouter()
 
-	cfg := config.Load()
-
-	err := r.Run(":" + cfg.ServerAddress)
+	err := r.Run(":8093")
 	if err != nil {
 		slog.Error("Failed to start server", slog.Any("error", err))
 		return

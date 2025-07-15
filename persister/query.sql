@@ -14,12 +14,26 @@ INSERT INTO scheduled_job (
 )
 RETURNING *;
 
--- name: StoreJobResult :one
-INSERT INTO job_results (
-  id, start_time, end_time
-) VALUES (
-  ?, ?, ?
-)
+-- name: UpsertJobStartTime :one
+INSERT INTO job_results (id, start_time)
+VALUES (?, ?)
+ON CONFLICT (id) DO UPDATE
+  SET start_time = EXCLUDED.start_time
+RETURNING *;
+
+-- name: UpsertJobEndTime :one
+INSERT INTO job_results (id, end_time)
+VALUES (?, ?)
+ON CONFLICT (id) DO UPDATE
+  SET end_time = EXCLUDED.end_time
+RETURNING *;
+
+-- name: UpsertJobTimes :one
+INSERT INTO job_results (id, start_time, end_time)
+  VALUES (?, ?, ?)
+ON CONFLICT (id) DO UPDATE
+  SET start_time = EXCLUDED.start_time,
+  end_time = EXCLUDED.end_time
 RETURNING *;
 
 -- name: GetQueueLatenciesInRange :many

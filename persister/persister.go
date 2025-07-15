@@ -20,7 +20,8 @@ const file string = "benchmark.db"
 // This implementation allows to abstract the concrete storage mechanism
 type Persister interface {
 	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string)
-	StoreResult(uuid uuid.UUID, startTime time.Time, endTime time.Time)
+	StoreStartTime(uuid uuid.UUID, startTime time.Time)
+	StoreResult(uuid uuid.UUID, time time.Time)
 }
 
 // DBPersister is a concrete implementation of the Persister interface
@@ -65,11 +66,23 @@ func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor s
 	})
 }
 
-func (d DBPersister) StoreResult(uuid uuid.UUID, startTime time.Time, endTime time.Time) {
-	d.queries.StoreJobResult(context.Background(), model.StoreJobResultParams{
-		ID:        uuid,
-		StartTime: startTime.UTC().Format("2006-01-02 15:04:05"),
-		EndTime:   endTime.UTC().Format("2006-01-02 15:04:05"),
+func (d DBPersister) StoreStartTime(uuid uuid.UUID, startTime time.Time) {
+	d.queries.UpsertJobStartTime(context.Background(), model.UpsertJobStartTimeParams{
+		ID: uuid,
+		StartTime: sql.NullString{
+			String: startTime.UTC().Format("2006-01-02 15:04:05"),
+			Valid:  true,
+		},
+	})
+}
+
+func (d DBPersister) StoreResult(uuid uuid.UUID, endTime time.Time) {
+	d.queries.UpsertJobEndTime(context.Background(), model.UpsertJobEndTimeParams{
+		ID: uuid,
+		EndTime: sql.NullString{
+			String: endTime.UTC().Format("2006-01-02 15:04:05"),
+			Valid:  true,
+		},
 	})
 }
 

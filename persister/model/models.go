@@ -9,9 +9,9 @@ import (
 )
 
 type JobResult struct {
-	ID        uuid.UUID `json:"id"`
-	StartTime string    `json:"start_time"`
-	EndTime   string    `json:"end_time"`
+	ID        uuid.UUID   `json:"id"`
+	StartTime interface{} `json:"start_time"`
+	EndTime   interface{} `json:"end_time"`
 }
 
 type ScheduledJob struct {

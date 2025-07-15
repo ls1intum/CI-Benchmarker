@@ -180,28 +180,6 @@ func (q *Queries) GetQueueLatencySummaryInRange(ctx context.Context, arg GetQueu
 	return items, nil
 }
 
-const storeJobResult = `-- name: StoreJobResult :one
-INSERT INTO job_results (
-  id, start_time, end_time
-) VALUES (
-  ?, ?, ?
-)
-RETURNING id, start_time, end_time
-`
-
-type StoreJobResultParams struct {
-	ID        uuid.UUID `json:"id"`
-	StartTime string    `json:"start_time"`
-	EndTime   string    `json:"end_time"`
-}
-
-func (q *Queries) StoreJobResult(ctx context.Context, arg StoreJobResultParams) (JobResult, error) {
-	row := q.db.QueryRowContext(ctx, storeJobResult, arg.ID, arg.StartTime, arg.EndTime)
-	var i JobResult
-	err := row.Scan(&i.ID, &i.StartTime, &i.EndTime)
-	return i, err
-}
-
 const storeScheduledJob = `-- name: StoreScheduledJob :one
 INSERT INTO scheduled_job (
   id, creation_time, executor
@@ -259,5 +237,67 @@ func (q *Queries) StoreScheduledJobWithMetadata(ctx context.Context, arg StoreSc
 		&i.Executor,
 		&i.Metadata,
 	)
+	return i, err
+}
+
+const upsertJobEndTime = `-- name: UpsertJobEndTime :one
+INSERT INTO job_results (id, end_time)
+VALUES (?, ?)
+ON CONFLICT (id) DO UPDATE
+  SET end_time = EXCLUDED.end_time
+RETURNING id, start_time, end_time
+`
+
+type UpsertJobEndTimeParams struct {
+	ID      uuid.UUID   `json:"id"`
+	EndTime interface{} `json:"end_time"`
+}
+
+func (q *Queries) UpsertJobEndTime(ctx context.Context, arg UpsertJobEndTimeParams) (JobResult, error) {
+	row := q.db.QueryRowContext(ctx, upsertJobEndTime, arg.ID, arg.EndTime)
+	var i JobResult
+	err := row.Scan(&i.ID, &i.StartTime, &i.EndTime)
+	return i, err
+}
+
+const upsertJobStartTime = `-- name: UpsertJobStartTime :one
+INSERT INTO job_results (id, start_time)
+VALUES (?, ?)
+ON CONFLICT (id) DO UPDATE
+  SET start_time = EXCLUDED.start_time
+RETURNING id, start_time, end_time
+`
+
+type UpsertJobStartTimeParams struct {
+	ID        uuid.UUID   `json:"id"`
+	StartTime interface{} `json:"start_time"`
+}
+
+func (q *Queries) UpsertJobStartTime(ctx context.Context, arg UpsertJobStartTimeParams) (JobResult, error) {
+	row := q.db.QueryRowContext(ctx, upsertJobStartTime, arg.ID, arg.StartTime)
+	var i JobResult
+	err := row.Scan(&i.ID, &i.StartTime, &i.EndTime)
+	return i, err
+}
+
+const upsertJobTimes = `-- name: UpsertJobTimes :one
+INSERT INTO job_results (id, start_time, end_time)
+  VALUES (?, ?, ?)
+ON CONFLICT (id) DO UPDATE
+  SET start_time = EXCLUDED.start_time,
+  end_time = EXCLUDED.end_time
+RETURNING id, start_time, end_time
+`
+
+type UpsertJobTimesParams struct {
+	ID        uuid.UUID   `json:"id"`
+	StartTime interface{} `json:"start_time"`
+	EndTime   interface{} `json:"end_time"`
+}
+
+func (q *Queries) UpsertJobTimes(ctx context.Context, arg UpsertJobTimesParams) (JobResult, error) {
+	row := q.db.QueryRowContext(ctx, upsertJobTimes, arg.ID, arg.StartTime, arg.EndTime)
+	var i JobResult
+	err := row.Scan(&i.ID, &i.StartTime, &i.EndTime)
 	return i, err
 }

@@ -20,6 +20,11 @@ type ResultMetadata struct {
 	BuildCompletionTime      string `json:"buildCompletionTime" env:"BUILD_COMPLETION_TIME"`
 }
 
+type JobStartTime struct {
+	UUID           string `json:"uuid" env:"UUID"`
+	BuildStartTime string `json:"buildStartTime" env:"BUILD_START_TIME"`
+}
+
 func startRouter() *gin.Engine {
 	slog.Debug("Setting up router")
 	gin.SetMode(gin.ReleaseMode)
@@ -30,6 +35,8 @@ func startRouter() *gin.Engine {
 	// Register the route for the start of the job
 	slog.Debug("Setting up routes")
 	version.POST("/result", handleResult)
+
+	version.POST("/start_time", handleStartTime)
 
 	// Register the route for the benchmark executors
 	version.POST("/benchmark/hades", benchmarkController.NewHadesBenchmark().HandleFunc)
@@ -65,17 +72,44 @@ func handleResult(c *gin.Context) {
 		return
 	}
 
-	currentTime := time.Now()
-
 	buildCompletionTime, err := time.Parse(time.RFC3339, resultMetadata.BuildCompletionTime)
 	if err != nil {
 		slog.Error("Failed to parse BuildCompletionTime", slog.Any("error", err))
 		c.JSON(400, gin.H{"error": "Failed to parse BuildCompletionTime"})
 		return
 	}
-	buildStartTime := buildCompletionTime.Add(-time.Since(time.Now()))
 
-	p.StoreResult(uuid, buildStartTime, currentTime)
+	p.StoreResult(uuid, buildCompletionTime)
 
 	c.JSON(200, gin.H{"message": "Result received"})
+}
+
+func handleStartTime(c *gin.Context) {
+	slog.Debug("Received job start time information", slog.Any("time", c.Request.Body))
+
+	// Get the UUID and the time from the request
+	var jobStartTime JobStartTime
+	if err := c.ShouldBindJSON(&jobStartTime); err != nil {
+		slog.Error("Failed to bind JSON", slog.Any("error", err))
+		c.JSON(400, gin.H{"error": "Failed to bind JSON"})
+		return
+	}
+
+	uuid, err := uuid.Parse(jobStartTime.UUID)
+	if err != nil {
+		slog.Error("Failed to parse UUID", slog.Any("error", err))
+		c.JSON(400, gin.H{"error": "Failed to parse UUID"})
+		return
+	}
+
+	buildStartTime, err := time.Parse(time.RFC3339, jobStartTime.BuildStartTime)
+	if err != nil {
+		slog.Error("Failed to parse BuildCompletionTime", slog.Any("error", err))
+		c.JSON(400, gin.H{"error": "Failed to parse BuildStartTime"})
+		return
+	}
+
+	p.StoreStartTime(uuid, buildStartTime)
+
+	c.JSON(200, gin.H{"message": "Build start time received"})
 }
