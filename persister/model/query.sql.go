@@ -7,31 +7,36 @@ package model
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
 
-const getBuildTimeSummaryInRange = `-- name: GetBuildTimeSummaryInRange :many
+const getBuildTimeSummaryInRangeByCommit = `-- name: GetBuildTimeSummaryInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
     job_results r
+        INNER JOIN scheduled_job s ON r.id = s.id
 WHERE
     r.start_time IS NOT NULL
   AND r.end_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
+  AND (s.commit_hash = ?3 OR ?3 IS NULL)
 ORDER BY
     build_time ASC
 `
 
-type GetBuildTimeSummaryInRangeParams struct {
-	From interface{} `json:"from"`
-	To   interface{} `json:"to"`
+type GetBuildTimeSummaryInRangeByCommitParams struct {
+	From       interface{}    `json:"from"`
+	To         interface{}    `json:"to"`
+	CommitHash sql.NullString `json:"commit_hash"`
 }
 
-func (q *Queries) GetBuildTimeSummaryInRange(ctx context.Context, arg GetBuildTimeSummaryInRangeParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getBuildTimeSummaryInRange, arg.From, arg.To)
+func (q *Queries) GetBuildTimeSummaryInRangeByCommit(ctx context.Context, arg GetBuildTimeSummaryInRangeByCommitParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getBuildTimeSummaryInRangeByCommit, arg.From, arg.To, arg.CommitHash)
 	if err != nil {
 		return nil, err
 	}
@@ -53,27 +58,30 @@ func (q *Queries) GetBuildTimeSummaryInRange(ctx context.Context, arg GetBuildTi
 	return items, nil
 }
 
-const getBuildTimesInRange = `-- name: GetBuildTimesInRange :many
+const getBuildTimesInRangeByCommit = `-- name: GetBuildTimesInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
     job_results r
+        INNER JOIN scheduled_job s ON r.id = s.id
 WHERE
     r.start_time IS NOT NULL
   AND r.end_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
+  AND (s.commit_hash = ?3 OR ?3 IS NULL)
 ORDER BY
     build_time DESC
 `
 
-type GetBuildTimesInRangeParams struct {
-	From interface{} `json:"from"`
-	To   interface{} `json:"to"`
+type GetBuildTimesInRangeByCommitParams struct {
+	From       interface{}    `json:"from"`
+	To         interface{}    `json:"to"`
+	CommitHash sql.NullString `json:"commit_hash"`
 }
 
-func (q *Queries) GetBuildTimesInRange(ctx context.Context, arg GetBuildTimesInRangeParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getBuildTimesInRange, arg.From, arg.To)
+func (q *Queries) GetBuildTimesInRangeByCommit(ctx context.Context, arg GetBuildTimesInRangeByCommitParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getBuildTimesInRangeByCommit, arg.From, arg.To, arg.CommitHash)
 	if err != nil {
 		return nil, err
 	}
@@ -95,28 +103,29 @@ func (q *Queries) GetBuildTimesInRange(ctx context.Context, arg GetBuildTimesInR
 	return items, nil
 }
 
-const getQueueLatenciesInRange = `-- name: GetQueueLatenciesInRange :many
+const getQueueLatenciesInRangeByCommit = `-- name: GetQueueLatenciesInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS queue_latency
 FROM
     scheduled_job s
-        INNER JOIN
-    job_results r ON s.id = r.id
+        INNER JOIN job_results r ON s.id = r.id
 WHERE
     r.start_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.start_time) <= datetime(?2) OR ?2 IS NULL)
+  AND (s.commit_hash = ?3 OR ?3 IS NULL)
 ORDER BY
     queue_latency DESC
 `
 
-type GetQueueLatenciesInRangeParams struct {
-	From interface{} `json:"from"`
-	To   interface{} `json:"to"`
+type GetQueueLatenciesInRangeByCommitParams struct {
+	From       interface{}    `json:"from"`
+	To         interface{}    `json:"to"`
+	CommitHash sql.NullString `json:"commit_hash"`
 }
 
-func (q *Queries) GetQueueLatenciesInRange(ctx context.Context, arg GetQueueLatenciesInRangeParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getQueueLatenciesInRange, arg.From, arg.To)
+func (q *Queries) GetQueueLatenciesInRangeByCommit(ctx context.Context, arg GetQueueLatenciesInRangeByCommitParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getQueueLatenciesInRangeByCommit, arg.From, arg.To, arg.CommitHash)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +147,7 @@ func (q *Queries) GetQueueLatenciesInRange(ctx context.Context, arg GetQueueLate
 	return items, nil
 }
 
-const getQueueLatencySummaryInRange = `-- name: GetQueueLatencySummaryInRange :many
+const getQueueLatencySummaryInRangeByCommit = `-- name: GetQueueLatencySummaryInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS latency
 FROM
@@ -148,17 +157,19 @@ WHERE
     r.start_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.start_time) <= datetime(?2) OR ?2 IS NULL)
+  AND (s.commit_hash = ?3 OR ?3 IS NULL)
 ORDER BY
     latency ASC
 `
 
-type GetQueueLatencySummaryInRangeParams struct {
-	From interface{} `json:"from"`
-	To   interface{} `json:"to"`
+type GetQueueLatencySummaryInRangeByCommitParams struct {
+	From       interface{}    `json:"from"`
+	To         interface{}    `json:"to"`
+	CommitHash sql.NullString `json:"commit_hash"`
 }
 
-func (q *Queries) GetQueueLatencySummaryInRange(ctx context.Context, arg GetQueueLatencySummaryInRangeParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getQueueLatencySummaryInRange, arg.From, arg.To)
+func (q *Queries) GetQueueLatencySummaryInRangeByCommit(ctx context.Context, arg GetQueueLatencySummaryInRangeByCommitParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getQueueLatencySummaryInRangeByCommit, arg.From, arg.To, arg.CommitHash)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +191,7 @@ func (q *Queries) GetQueueLatencySummaryInRange(ctx context.Context, arg GetQueu
 	return items, nil
 }
 
-const getTotalLatenciesInRange = `-- name: GetTotalLatenciesInRange :many
+const getTotalLatenciesInRangeByCommit = `-- name: GetTotalLatenciesInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
 FROM
@@ -191,17 +202,19 @@ WHERE
   AND r.end_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
+  AND (s.commit_hash = ?3 OR ?3 IS NULL)
 ORDER BY
     total_latency DESC
 `
 
-type GetTotalLatenciesInRangeParams struct {
-	From interface{} `json:"from"`
-	To   interface{} `json:"to"`
+type GetTotalLatenciesInRangeByCommitParams struct {
+	From       interface{}    `json:"from"`
+	To         interface{}    `json:"to"`
+	CommitHash sql.NullString `json:"commit_hash"`
 }
 
-func (q *Queries) GetTotalLatenciesInRange(ctx context.Context, arg GetTotalLatenciesInRangeParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getTotalLatenciesInRange, arg.From, arg.To)
+func (q *Queries) GetTotalLatenciesInRangeByCommit(ctx context.Context, arg GetTotalLatenciesInRangeByCommitParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getTotalLatenciesInRangeByCommit, arg.From, arg.To, arg.CommitHash)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +236,7 @@ func (q *Queries) GetTotalLatenciesInRange(ctx context.Context, arg GetTotalLate
 	return items, nil
 }
 
-const getTotalLatenciesSummaryInRange = `-- name: GetTotalLatenciesSummaryInRange :many
+const getTotalLatenciesSummaryInRangeByCommit = `-- name: GetTotalLatenciesSummaryInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
 FROM
@@ -234,17 +247,19 @@ WHERE
   AND r.end_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
+  AND (s.commit_hash = ?3 OR ?3 IS NULL)
 ORDER BY
     total_latency ASC
 `
 
-type GetTotalLatenciesSummaryInRangeParams struct {
-	From interface{} `json:"from"`
-	To   interface{} `json:"to"`
+type GetTotalLatenciesSummaryInRangeByCommitParams struct {
+	From       interface{}    `json:"from"`
+	To         interface{}    `json:"to"`
+	CommitHash sql.NullString `json:"commit_hash"`
 }
 
-func (q *Queries) GetTotalLatenciesSummaryInRange(ctx context.Context, arg GetTotalLatenciesSummaryInRangeParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getTotalLatenciesSummaryInRange, arg.From, arg.To)
+func (q *Queries) GetTotalLatenciesSummaryInRangeByCommit(ctx context.Context, arg GetTotalLatenciesSummaryInRangeByCommitParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getTotalLatenciesSummaryInRangeByCommit, arg.From, arg.To, arg.CommitHash)
 	if err != nil {
 		return nil, err
 	}
@@ -268,45 +283,53 @@ func (q *Queries) GetTotalLatenciesSummaryInRange(ctx context.Context, arg GetTo
 
 const storeScheduledJob = `-- name: StoreScheduledJob :one
 INSERT INTO scheduled_job (
-  id, creation_time, executor
+  id, creation_time, executor, commit_hash
 ) VALUES (
-  ?, ?, ?
+  ?, ?, ?, ?
 )
-RETURNING id, creation_time, executor, metadata
+RETURNING id, creation_time, executor, metadata, commit_hash
 `
 
 type StoreScheduledJobParams struct {
-	ID           uuid.UUID `json:"id"`
-	CreationTime string    `json:"creation_time"`
-	Executor     string    `json:"executor"`
+	ID           uuid.UUID      `json:"id"`
+	CreationTime time.Time      `json:"creation_time"`
+	Executor     string         `json:"executor"`
+	CommitHash   sql.NullString `json:"commit_hash"`
 }
 
 func (q *Queries) StoreScheduledJob(ctx context.Context, arg StoreScheduledJobParams) (ScheduledJob, error) {
-	row := q.db.QueryRowContext(ctx, storeScheduledJob, arg.ID, arg.CreationTime, arg.Executor)
+	row := q.db.QueryRowContext(ctx, storeScheduledJob,
+		arg.ID,
+		arg.CreationTime,
+		arg.Executor,
+		arg.CommitHash,
+	)
 	var i ScheduledJob
 	err := row.Scan(
 		&i.ID,
 		&i.CreationTime,
 		&i.Executor,
 		&i.Metadata,
+		&i.CommitHash,
 	)
 	return i, err
 }
 
 const storeScheduledJobWithMetadata = `-- name: StoreScheduledJobWithMetadata :one
 INSERT INTO scheduled_job (
-  id, creation_time, executor, metadata
+  id, creation_time, executor, metadata, commit_hash
 ) VALUES (
-  ?, ?, ?, ?
+  ?, ?, ?, ?, ?
 )
-RETURNING id, creation_time, executor, metadata
+RETURNING id, creation_time, executor, metadata, commit_hash
 `
 
 type StoreScheduledJobWithMetadataParams struct {
-	ID           uuid.UUID   `json:"id"`
-	CreationTime string      `json:"creation_time"`
-	Executor     string      `json:"executor"`
-	Metadata     interface{} `json:"metadata"`
+	ID           uuid.UUID      `json:"id"`
+	CreationTime time.Time      `json:"creation_time"`
+	Executor     string         `json:"executor"`
+	Metadata     interface{}    `json:"metadata"`
+	CommitHash   sql.NullString `json:"commit_hash"`
 }
 
 func (q *Queries) StoreScheduledJobWithMetadata(ctx context.Context, arg StoreScheduledJobWithMetadataParams) (ScheduledJob, error) {
@@ -315,6 +338,7 @@ func (q *Queries) StoreScheduledJobWithMetadata(ctx context.Context, arg StoreSc
 		arg.CreationTime,
 		arg.Executor,
 		arg.Metadata,
+		arg.CommitHash,
 	)
 	var i ScheduledJob
 	err := row.Scan(
@@ -322,6 +346,7 @@ func (q *Queries) StoreScheduledJobWithMetadata(ctx context.Context, arg StoreSc
 		&i.CreationTime,
 		&i.Executor,
 		&i.Metadata,
+		&i.CommitHash,
 	)
 	return i, err
 }

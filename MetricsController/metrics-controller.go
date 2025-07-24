@@ -32,8 +32,14 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 		return
 	}
 
+	var commitHash *string
+	hash := c.Query("commit_hash")
+	if hash != "" {
+		commitHash = &hash
+	}
+
 	p := persister.NewDBPersister()
-	latencies, err := p.GetQueueLatenciesInRange(from, to)
+	latencies, err := p.GetQueueLatenciesInRange(from, to, commitHash)
 	if err != nil {
 		log.Println("Error fetching queue latencies:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latencies"})
@@ -82,8 +88,14 @@ func GetBuildTimeHistogram(c *gin.Context) {
 		return
 	}
 
+	var commitHash *string
+	hash := c.Query("commit_hash")
+	if hash != "" {
+		commitHash = &hash
+	}
+
 	p := persister.NewDBPersister()
-	buildTimes, err := p.GetBuildTimesInRange(from, to)
+	buildTimes, err := p.GetBuildTimesInRange(from, to, commitHash)
 	if err != nil {
 		log.Println("Error fetching build times:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build times"})
@@ -132,8 +144,14 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 		return
 	}
 
+	var commitHash *string
+	hash := c.Query("commit_hash")
+	if hash != "" {
+		commitHash = &hash
+	}
+
 	p := persister.NewDBPersister()
-	latencies, err := p.GetTotalLatenciesInRange(from, to)
+	latencies, err := p.GetTotalLatenciesInRange(from, to, commitHash)
 	if err != nil {
 		log.Println("Error fetching total latencies:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latencies"})
@@ -182,8 +200,14 @@ func GetQueueLatencyMetrics(c *gin.Context) {
 		return
 	}
 
+	var commitHash *string
+	hash := c.Query("commit_hash")
+	if hash != "" {
+		commitHash = &hash
+	}
+
 	p := persister.NewDBPersister()
-	latencies, err := p.GetQueueLatencySummaryInRange(from, to)
+	latencies, err := p.GetQueueLatencySummaryInRange(from, to, commitHash)
 	if err != nil {
 		log.Println("Error fetching queue latency summary:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latency summary"})
@@ -227,8 +251,14 @@ func GetBuildTimeMetrics(c *gin.Context) {
 		return
 	}
 
+	var commitHash *string
+	hash := c.Query("commit_hash")
+	if hash != "" {
+		commitHash = &hash
+	}
+
 	p := persister.NewDBPersister()
-	buildTimes, err := p.GetBuildTimeSummaryInRange(from, to)
+	buildTimes, err := p.GetBuildTimeSummaryInRange(from, to, commitHash)
 	if err != nil {
 		log.Println("Error fetching build time summary:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build time summary"})
@@ -272,8 +302,14 @@ func GetTotalLatencyMetrics(c *gin.Context) {
 		return
 	}
 
+	var commitHash *string
+	hash := c.Query("commit_hash")
+	if hash != "" {
+		commitHash = &hash
+	}
+
 	p := persister.NewDBPersister()
-	latencies, err := p.GetTotalLatenciesSummaryInRange(from, to)
+	latencies, err := p.GetTotalLatenciesSummaryInRange(from, to, commitHash)
 	if err != nil {
 		log.Println("Error fetching total latency summary:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latency summary"})

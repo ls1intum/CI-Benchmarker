@@ -1,16 +1,16 @@
 -- name: StoreScheduledJobWithMetadata :one
 INSERT INTO scheduled_job (
-  id, creation_time, executor, metadata
+  id, creation_time, executor, metadata, commit_hash
 ) VALUES (
-  ?, ?, ?, ?
+  ?, ?, ?, ?, ?
 )
 RETURNING *;
 
 -- name: StoreScheduledJob :one
 INSERT INTO scheduled_job (
-  id, creation_time, executor
+  id, creation_time, executor, commit_hash
 ) VALUES (
-  ?, ?, ?
+  ?, ?, ?, ?
 )
 RETURNING *;
 
@@ -36,34 +36,36 @@ ON CONFLICT (id) DO UPDATE
   end_time = EXCLUDED.end_time
 RETURNING *;
 
--- name: GetQueueLatenciesInRange :many
+-- name: GetQueueLatenciesInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS queue_latency
 FROM
     scheduled_job s
-        INNER JOIN
-    job_results r ON s.id = r.id
+        INNER JOIN job_results r ON s.id = r.id
 WHERE
     r.start_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.start_time) <= datetime(:to) OR :to IS NULL)
+  AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
 ORDER BY
     queue_latency DESC;
 
--- name: GetBuildTimesInRange :many
+-- name: GetBuildTimesInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
     job_results r
+        INNER JOIN scheduled_job s ON r.id = s.id
 WHERE
     r.start_time IS NOT NULL
   AND r.end_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.end_time) <= datetime(:to) OR :to IS NULL)
+  AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
 ORDER BY
     build_time DESC;
 
--- name: GetTotalLatenciesInRange :many
+-- name: GetTotalLatenciesInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
 FROM
@@ -74,11 +76,11 @@ WHERE
   AND r.end_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.end_time) <= datetime(:to) OR :to IS NULL)
+  AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
 ORDER BY
     total_latency DESC;
 
-
--- name: GetQueueLatencySummaryInRange :many
+-- name: GetQueueLatencySummaryInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS latency
 FROM
@@ -88,23 +90,26 @@ WHERE
     r.start_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.start_time) <= datetime(:to) OR :to IS NULL)
+  AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
 ORDER BY
     latency ASC;
 
--- name: GetBuildTimeSummaryInRange :many
+-- name: GetBuildTimeSummaryInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
     job_results r
+        INNER JOIN scheduled_job s ON r.id = s.id
 WHERE
     r.start_time IS NOT NULL
   AND r.end_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.end_time) <= datetime(:to) OR :to IS NULL)
+  AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
 ORDER BY
     build_time ASC;
 
--- name: GetTotalLatenciesSummaryInRange :many
+-- name: GetTotalLatenciesSummaryInRangeByCommit :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
 FROM
@@ -115,5 +120,6 @@ WHERE
   AND r.end_time IS NOT NULL
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.end_time) <= datetime(:to) OR :to IS NULL)
+  AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
 ORDER BY
     total_latency ASC;

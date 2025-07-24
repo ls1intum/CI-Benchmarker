@@ -45,10 +45,17 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 		return
 	}
 
+	// Get the commit hash from the query parameters
+	var commitHash *string
+	hash := c.Query("commit_hash")
+	if hash != "" {
+		commitHash = &hash
+	}
+
 	// Run the benchmark
 	slog.Debug("Running jobs", slog.Any("count", count))
 	b.JobCounter = count
-	b.run(restPayload)
+	b.run(restPayload, commitHash)
 
 	c.JSON(200, gin.H{"message": "Benchmark started"})
 }
@@ -60,7 +67,7 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 // The function logs various stages of job execution, including the start of job
 // scheduling, any errors encountered during execution, and the successful storage
 // of job results.
-func (b Benchmark) run(payload payload.RESTPayload) {
+func (b Benchmark) run(payload payload.RESTPayload, commitHash *string) {
 	slog.Info("Running jobs", slog.Any("number", b.JobCounter), slog.Any("executor", b.Executor))
 	var wg sync.WaitGroup
 
@@ -78,7 +85,7 @@ func (b Benchmark) run(payload payload.RESTPayload) {
 
 			// Store the job
 			slog.Debug("Storing job", slog.Any("uuid", uuid))
-			p.StoreJob(uuid, time.Now(), b.Executor.Name())
+			p.StoreJob(uuid, time.Now(), b.Executor.Name(), commitHash)
 
 			slog.Debug("Job send successfully", slog.Any("uuid", uuid))
 		}(b.Persister)

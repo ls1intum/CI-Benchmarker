@@ -5,6 +5,9 @@
 package model
 
 import (
+	"database/sql"
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -15,8 +18,9 @@ type JobResult struct {
 }
 
 type ScheduledJob struct {
-	ID           uuid.UUID   `json:"id"`
-	CreationTime string      `json:"creation_time"`
-	Executor     string      `json:"executor"`
-	Metadata     interface{} `json:"metadata"`
+	ID           uuid.UUID      `json:"id"`
+	CreationTime time.Time      `json:"creation_time"`
+	Executor     string         `json:"executor"`
+	Metadata     interface{}    `json:"metadata"`
+	CommitHash   sql.NullString `json:"commit_hash"`
 }
