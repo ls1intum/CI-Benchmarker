@@ -180,6 +180,92 @@ func (q *Queries) GetQueueLatencySummaryInRange(ctx context.Context, arg GetQueu
 	return items, nil
 }
 
+const getTotalLatenciesInRange = `-- name: GetTotalLatenciesInRange :many
+SELECT
+    CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
+FROM
+    scheduled_job s
+        INNER JOIN job_results r ON s.id = r.id
+WHERE
+    r.start_time IS NOT NULL
+  AND r.end_time IS NOT NULL
+  AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
+  AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
+ORDER BY
+    total_latency DESC
+`
+
+type GetTotalLatenciesInRangeParams struct {
+	From interface{} `json:"from"`
+	To   interface{} `json:"to"`
+}
+
+func (q *Queries) GetTotalLatenciesInRange(ctx context.Context, arg GetTotalLatenciesInRangeParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getTotalLatenciesInRange, arg.From, arg.To)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var total_latency int64
+		if err := rows.Scan(&total_latency); err != nil {
+			return nil, err
+		}
+		items = append(items, total_latency)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTotalLatenciesSummaryInRange = `-- name: GetTotalLatenciesSummaryInRange :many
+SELECT
+    CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
+FROM
+    scheduled_job s
+        INNER JOIN job_results r ON s.id = r.id
+WHERE
+    r.start_time IS NOT NULL
+  AND r.end_time IS NOT NULL
+  AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
+  AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
+ORDER BY
+    total_latency ASC
+`
+
+type GetTotalLatenciesSummaryInRangeParams struct {
+	From interface{} `json:"from"`
+	To   interface{} `json:"to"`
+}
+
+func (q *Queries) GetTotalLatenciesSummaryInRange(ctx context.Context, arg GetTotalLatenciesSummaryInRangeParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getTotalLatenciesSummaryInRange, arg.From, arg.To)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var total_latency int64
+		if err := rows.Scan(&total_latency); err != nil {
+			return nil, err
+		}
+		items = append(items, total_latency)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const storeScheduledJob = `-- name: StoreScheduledJob :one
 INSERT INTO scheduled_job (
   id, creation_time, executor

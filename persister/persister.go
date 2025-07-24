@@ -157,3 +157,39 @@ func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time) ([]int64, e
 
 	return d.queries.GetBuildTimeSummaryInRange(ctx, params)
 }
+
+func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time) ([]int64, error) {
+	ctx := context.Background()
+
+	params := model.GetTotalLatenciesInRangeParams{
+		From: nil,
+		To:   nil,
+	}
+
+	if from != nil {
+		params.From = from.UTC().Format("2006-01-02 15:04:05")
+	}
+	if to != nil {
+		params.To = to.UTC().Format("2006-01-02 15:04:05")
+	}
+
+	return d.queries.GetTotalLatenciesInRange(ctx, params)
+}
+
+func (d DBPersister) GetTotalLatenciesSummaryInRange(from, to *time.Time) ([]int64, error) {
+	ctx := context.Background()
+
+	params := model.GetTotalLatenciesSummaryInRangeParams{
+		From: nil,
+		To:   nil,
+	}
+
+	if from != nil {
+		params.From = from.UTC().Format("2006-01-02 15:04:05")
+	}
+	if to != nil {
+		params.To = to.UTC().Format("2006-01-02 15:04:05")
+	}
+
+	return d.queries.GetTotalLatenciesSummaryInRange(ctx, params)
+}
