@@ -74,21 +74,23 @@ func (b Benchmark) run(payload payload.RESTPayload, commitHash *string) {
 	for i := 0; i < b.JobCounter; i++ {
 		wg.Add(1)
 
-		go func(p persister.Persister) {
+		go func(p persister.Persister, jobIndex int) {
 			defer wg.Done()
-			slog.Debug("Scheduling job %d", slog.Any("i", i))
+			slog.Debug("Scheduling job", slog.Int("index", jobIndex))
+
 			// Execute the job
 			uuid, err := b.Executor.Execute(payload)
 			if err != nil {
-				slog.Error("Error while scheduling", slog.Any("error", err))
+				slog.Error("Error while scheduling job", slog.Int("index", jobIndex), slog.Any("error", err))
+				return
 			}
 
 			// Store the job
 			slog.Debug("Storing job", slog.Any("uuid", uuid))
 			p.StoreJob(uuid, time.Now(), b.Executor.Name(), commitHash)
 
-			slog.Debug("Job send successfully", slog.Any("uuid", uuid))
-		}(b.Persister)
+			slog.Debug("Job stored successfully", slog.Any("uuid", uuid))
+		}(b.Persister, i)
 	}
 
 	wg.Wait()

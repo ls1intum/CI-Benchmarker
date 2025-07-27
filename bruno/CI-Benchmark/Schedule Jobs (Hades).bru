@@ -5,13 +5,14 @@ meta {
 }
 
 post {
-  url: http://{{hostname}}/v1/benchmark/hades?count=10
+  url: http://{{hostname}}/v1/benchmark/hades?count=10&commit_hash=123456
   body: json
   auth: none
 }
 
 params:query {
   count: 10
+  commit_hash: 123456
 }
 
 body:json {
@@ -53,7 +54,7 @@ body:json {
         "id": 3, // mandatory to declare the order of execution
         "name": "Execute",
         "image": "ls1tum/artemis-maven-template:java17-18", // mandatory
-        "script": "set +e && cd ./shared/example || exit 0 && ./gradlew --status || exit 0 && ./gradlew clean test || exit 0"
+        "script": "set -e && cd /shared/example && ./gradlew --status && ./gradlew clean test"
       },
       {
         "id": 4,
@@ -68,4 +69,11 @@ body:json {
       }
     ]
   }
+}
+
+vars:pre-request {
+  user: 
+  password: 
+  test_repo: https://github.com/Mtze/Artemis-Java-Test.git
+  assignment_repo: https://github.com/Mtze/Artemis-Java-Solution.git
 }

@@ -5,12 +5,13 @@ meta {
 }
 
 get {
-  url: http://{{hostname}}/v1/benchmark/queue_latency/histogram
+  url: http://{{hostname}}/v1/benchmark/queue_latency/histogram?commit_hash=123456
   body: none
   auth: inherit
 }
 
 params:query {
+  commit_hash: 123456
   ~from: 2025-05-01T22:00:00
   ~to: 2025-05-14T22:00:00
 }

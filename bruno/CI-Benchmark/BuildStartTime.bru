@@ -1,0 +1,18 @@
+meta {
+  name: BuildStartTime
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://{{hostname}}/v1/start_time
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "uuid": "3b0bce02-43c6-4e66-8810-b7a0ac5b3a08",
+    "buildStartTime": "2025-06-04T15:54:39Z"
+  }
+}

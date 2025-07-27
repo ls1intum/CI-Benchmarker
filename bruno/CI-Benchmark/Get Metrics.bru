@@ -1,0 +1,17 @@
+meta {
+  name: Get Metrics
+  type: http
+  seq: 9
+}
+
+get {
+  url: http://{{hostname}}/v1/benchmark/latency/metrics
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~commit_hash: 123456
+  ~from: 2025-05-01T22:00:00
+  ~to: 2025-05-14T22:00:00
+}
