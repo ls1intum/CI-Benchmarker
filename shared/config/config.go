@@ -23,14 +23,17 @@ func GetEnv(key string) string {
 
 func Load() Config {
 	once.Do(func() {
+		viper.AutomaticEnv()
+
 		viper.SetConfigName(".env")
 		viper.SetConfigType("env")
 		viper.AddConfigPath(".")
-		viper.AutomaticEnv()
-
 		if err := viper.ReadInConfig(); err != nil {
 			slog.Warn("No .env file found or failed to load it", "error", err)
 		}
+
+		_ = viper.BindEnv("HADES_HOST")
+		_ = viper.BindEnv("SERVER_ADDRESS")
 
 		if err := viper.Unmarshal(&cfg); err != nil {
 			slog.Error("Failed to unmarshal config", "error", err)
