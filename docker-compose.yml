@@ -1,12 +1,37 @@
 version: '3.8'
 
 services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=youremail@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--providers.docker=true"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/acme.json:/etc/traefik/acme.json
+
   benchmarker:
     build: .
     image: ghcr.io/mtze/ci-benchmarker/benchmarker:latest
     container_name: benchmarker
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       - SERVER_ADDRESS=8092
       - HADES_HOST=http://localhost:8081/build
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.benchmarker.rule=Host(`ma-yu.aet.cit.tum.de`)"
+      - "traefik.http.routers.benchmarker.entrypoints=websecure"
+      - "traefik.http.routers.benchmarker.tls.certresolver=letsencrypt"
+      - "traefik.http.services.benchmarker.loadbalancer.server.port=8080"

@@ -5,13 +5,13 @@ meta {
 }
 
 post {
-  url: http://{{hostname}}/v1/benchmark/hades?count=10&commit_hash=123456
+  url: https://{{hostname}}/v1/benchmark/hades?count=50&commit_hash=123456
   body: json
   auth: none
 }
 
 params:query {
-  count: 10
+  count: 50
   commit_hash: 123456
 }
 

@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/spf13/viper"
 	"log/slog"
+	"os"
 	"sync"
 )
 
@@ -15,6 +16,10 @@ var (
 	cfg  Config
 	once sync.Once
 )
+
+func GetEnv(key string) string {
+	return os.Getenv(key)
+}
 
 func Load() Config {
 	once.Do(func() {
