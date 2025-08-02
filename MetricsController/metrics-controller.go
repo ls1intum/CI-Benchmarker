@@ -63,7 +63,9 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 
 	h, err := plotter.NewHist(values, 20)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error creating histogram:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create histogram"})
+		return
 	}
 	pg.Add(h)
 
