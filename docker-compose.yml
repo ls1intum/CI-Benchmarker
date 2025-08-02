@@ -27,6 +27,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.benchmarker.rule=Host(`ma-yu.aet.cit.tum.de`)"
-      - "traefik.http.routers.benchmarker.entrypoints=web,websecure"   # 接受 80、443
+      - "traefik.http.routers.benchmarker.entrypoints=web,websecure"
       - "traefik.http.routers.benchmarker.tls.certresolver=letsencrypt"
       - "traefik.http.services.benchmarker.loadbalancer.server.port=8080"

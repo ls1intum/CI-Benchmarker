@@ -7,7 +7,7 @@
 ## Usage
 
 ```bash
-docker-compose up
+  docker-compose up
 ```
 
 Use the [bruno](https://www.usebruno.com/) examples in the `docs` folder to test the system
@@ -17,7 +17,7 @@ Use the [bruno](https://www.usebruno.com/) examples in the `docs` folder to test
 Start in dev mode
 
 ```bash
-DEBUG=True go run .
+  DEBUG=True go run .
 ```
 
 ### Generate DB code
@@ -27,7 +27,18 @@ DEBUG=True go run .
 - Update the `queries.sql` file with the correct queries
 
 ```bash
-sqlc generate
+  sqlc generate
 ```
 
 Make sure the generated types still work ;)
+
+# Deployment on a VM with publich IP
+Firts run
+```bash
+    chmod 600 traefik/acme.json
+```
+
+Then run 
+```bash
+  docker compose up
+```
