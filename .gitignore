@@ -3,3 +3,4 @@ benchmark.db
 .idea
 .vscode
 .env
+traefik/acme.json
