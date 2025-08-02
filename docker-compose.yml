@@ -5,7 +5,8 @@ services:
     image: traefik:v3.0
     container_name: traefik
     command:
-      - "--configFile=/etc/traefik/traefik.yml"
+      - --configFile=/etc/traefik/traefik.yml
+      - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
     ports:
       - "80:80"
       - "443:443"
@@ -25,8 +26,8 @@ services:
       - SERVER_ADDRESS=8080
       - HADES_HOST=http://localhost:8081/build
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.benchmarker.rule=Host(`ma-yu.aet.cit.tum.de`)"
-      - "traefik.http.routers.benchmarker.entrypoints=web,websecure"
-      - "traefik.http.routers.benchmarker.tls.certresolver=letsencrypt"
-      - "traefik.http.services.benchmarker.loadbalancer.server.port=8080"
+      - traefik.enable=true
+      - traefik.http.routers.benchmarker.rule=Host(`ma-yu.aet.cit.tum.de`)
+      - traefik.http.routers.benchmarker.entrypoints=web,websecure
+      - traefik.http.routers.benchmarker.tls.certresolver=letsencrypt
+      - traefik.http.services.benchmarker.loadbalancer.server.port=8080

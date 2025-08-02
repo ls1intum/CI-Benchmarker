@@ -23,7 +23,6 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: shuaiwei.yu@tum.de
       storage: /etc/traefik/acme.json
       httpChallenge:
         entryPoint: web
