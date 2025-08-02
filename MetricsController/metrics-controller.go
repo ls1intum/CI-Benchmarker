@@ -179,7 +179,7 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 
 	h, err := plotter.NewHist(values, 20)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error creating histogram:", err)
 	}
 	pg.Add(h)
 
