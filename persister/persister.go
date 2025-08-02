@@ -97,15 +97,15 @@ func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time, commitHash *s
 	ctx := context.Background()
 
 	params := model.GetQueueLatenciesInRangeByCommitParams{
-		From: nil,
-		To:   nil,
+		From: sql.NullTime{Valid: false},
+		To:   sql.NullTime{Valid: false},
 	}
 
 	if from != nil {
-		params.From = from.UTC().Format("2006-01-02 15:04:05")
+		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
 	}
 	if to != nil {
-		params.To = to.UTC().Format("2006-01-02 15:04:05")
+		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
 	}
 	if commitHash != nil {
 		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
@@ -120,15 +120,15 @@ func (d DBPersister) GetBuildTimesInRange(from, to *time.Time, commitHash *strin
 	ctx := context.Background()
 
 	params := model.GetBuildTimesInRangeByCommitParams{
-		From: nil,
-		To:   nil,
+		From: sql.NullTime{Valid: false},
+		To:   sql.NullTime{Valid: false},
 	}
 
 	if from != nil {
-		params.From = from.UTC().Format("2006-01-02 15:04:05")
+		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
 	}
 	if to != nil {
-		params.To = to.UTC().Format("2006-01-02 15:04:05")
+		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
 	}
 	if commitHash != nil {
 		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
@@ -143,15 +143,15 @@ func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time, commitHa
 	ctx := context.Background()
 
 	params := model.GetQueueLatencySummaryInRangeByCommitParams{
-		From: nil,
-		To:   nil,
+		From: sql.NullTime{Valid: false},
+		To:   sql.NullTime{Valid: false},
 	}
 
 	if from != nil {
-		params.From = sql.NullTime{Time: *from, Valid: true}
+		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
 	}
 	if to != nil {
-		params.To = sql.NullTime{Time: *to, Valid: true}
+		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
 	}
 	if commitHash != nil {
 		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
@@ -166,15 +166,15 @@ func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time, commitHash 
 	ctx := context.Background()
 
 	params := model.GetBuildTimeSummaryInRangeByCommitParams{
-		From: nil,
-		To:   nil,
+		From: sql.NullTime{Valid: false},
+		To:   sql.NullTime{Valid: false},
 	}
 
 	if from != nil {
-		params.From = sql.NullTime{Time: *from, Valid: true}
+		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
 	}
 	if to != nil {
-		params.To = sql.NullTime{Time: *to, Valid: true}
+		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
 	}
 	if commitHash != nil {
 		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
@@ -189,15 +189,15 @@ func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time, commitHash *s
 	ctx := context.Background()
 
 	params := model.GetTotalLatenciesInRangeByCommitParams{
-		From: nil,
-		To:   nil,
+		From: sql.NullTime{Valid: false},
+		To:   sql.NullTime{Valid: false},
 	}
 
 	if from != nil {
-		params.From = from.UTC().Format("2006-01-02 15:04:05")
+		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
 	}
 	if to != nil {
-		params.To = to.UTC().Format("2006-01-02 15:04:05")
+		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
 	}
 	if commitHash != nil {
 		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
@@ -212,15 +212,15 @@ func (d DBPersister) GetTotalLatenciesSummaryInRange(from, to *time.Time, commit
 	ctx := context.Background()
 
 	params := model.GetTotalLatenciesSummaryInRangeByCommitParams{
-		From: nil,
-		To:   nil,
+		From: sql.NullTime{Valid: false},
+		To:   sql.NullTime{Valid: false},
 	}
 
 	if from != nil {
-		params.From = from.UTC().Format("2006-01-02 15:04:05")
+		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
 	}
 	if to != nil {
-		params.To = to.UTC().Format("2006-01-02 15:04:05")
+		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
 	}
 	if commitHash != nil {
 		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
