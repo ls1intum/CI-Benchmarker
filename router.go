@@ -108,7 +108,7 @@ func handleStartTime(c *gin.Context) {
 
 	buildStartTime, err := time.Parse(time.RFC3339, jobStartTime.BuildStartTime)
 	if err != nil {
-		slog.Error("Failed to parse BuildCompletionTime", slog.Any("error", err))
+		slog.Error("Failed to parse BuildStartTime", slog.Any("error", err))
 		c.JSON(400, gin.H{"error": "Failed to parse BuildStartTime"})
 		return
 	}
