@@ -46,42 +46,7 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 		return
 	}
 
-	if len(latencies) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
-		return
-	}
-
-	values := make(plotter.Values, len(latencies))
-	for i, latency := range latencies {
-		values[i] = float64(latency)
-	}
-
-	pg := plot.New()
-	pg.Title.Text = "Queue Latency Distribution"
-	pg.X.Label.Text = "Queue Latency (s)"
-	pg.Y.Label.Text = "Frequency"
-
-	h, err := plotter.NewHist(values, 20)
-	if err != nil {
-		log.Println("Error creating histogram:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create histogram"})
-		return
-	}
-	pg.Add(h)
-
-	img := vgimg.New(500, 500)
-	dc := draw.New(img)
-	pg.Draw(dc)
-
-	png := vgimg.PngCanvas{Canvas: img}
-	buffer := new(bytes.Buffer)
-	if _, err := png.WriteTo(buffer); err != nil {
-		log.Println("Error writing PNG to buffer:", err)
-	}
-
-	c.Header("Content-Type", "image/png")
-	c.Status(http.StatusOK)
-	c.Writer.Write(buffer.Bytes())
+	renderPlotAsPNG(c, "Queue Latency Distribution", "Queue Latency (s)", "Frequency", latencies, 20)
 }
 
 func GetBuildTimeHistogram(c *gin.Context) {
@@ -104,42 +69,7 @@ func GetBuildTimeHistogram(c *gin.Context) {
 		return
 	}
 
-	if len(buildTimes) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
-		return
-	}
-
-	values := make(plotter.Values, len(buildTimes))
-	for i, buildTime := range buildTimes {
-		values[i] = float64(buildTime)
-	}
-
-	pg := plot.New()
-	pg.Title.Text = "Build Time Distribution"
-	pg.X.Label.Text = "Build Time (s)"
-	pg.Y.Label.Text = "Frequency"
-
-	h, err := plotter.NewHist(values, 20)
-	if err != nil {
-		log.Println("Error creating histogram:", err)
-	}
-	pg.Add(h)
-
-	img := vgimg.New(500, 500)
-	dc := draw.New(img)
-	pg.Draw(dc)
-
-	png := vgimg.PngCanvas{Canvas: img}
-	buffer := new(bytes.Buffer)
-	if _, err := png.WriteTo(buffer); err != nil {
-		log.Println("Error writing PNG to buffer:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate image"})
-		return
-	}
-
-	c.Header("Content-Type", "image/png")
-	c.Status(http.StatusOK)
-	c.Writer.Write(buffer.Bytes())
+	renderPlotAsPNG(c, "Build Time Distribution", "Build Time (s)", "Frequency", buildTimes, 20)
 }
 
 func GetTotalLatencyHistogram(c *gin.Context) {
@@ -162,24 +92,122 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 		return
 	}
 
+	renderPlotAsPNG(c, "Total Latency Distribution", "Total Latency (s)", "Frequency", latencies, 20)
+}
+
+func GetQueueLatencyMetrics(c *gin.Context) {
+	from, to, ok := utils.ParseTimeParams(c)
+	if !ok {
+		return
+	}
+
+	var commitHash *string
+	if hash := c.Query("commit_hash"); hash != "" {
+		commitHash = &hash
+	}
+
+	p := persister.NewDBPersister()
+	latencies, err := p.GetQueueLatencySummaryInRange(from, to, commitHash)
+	if err != nil {
+		log.Println("Error fetching queue latency summary:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latency summary"})
+		return
+	}
+
 	if len(latencies) == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
 		return
 	}
 
-	values := make(plotter.Values, len(latencies))
-	for i, latency := range latencies {
-		values[i] = float64(latency)
+	summary := calculateSummary(latencies, "Queue Latency Summary representing the time taken for jobs to be queued before execution with seconds as unit.")
+	c.JSON(http.StatusOK, summary)
+}
+
+func GetBuildTimeMetrics(c *gin.Context) {
+	from, to, ok := utils.ParseTimeParams(c)
+	if !ok {
+		return
+	}
+
+	var commitHash *string
+	if hash := c.Query("commit_hash"); hash != "" {
+		commitHash = &hash
+	}
+
+	p := persister.NewDBPersister()
+	buildTimes, err := p.GetBuildTimeSummaryInRange(from, to, commitHash)
+	if err != nil {
+		log.Println("Error fetching build time summary:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build time summary"})
+		return
+	}
+
+	if len(buildTimes) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
+		return
+	}
+
+	summary := calculateSummary(buildTimes, "Build Time Summary representing the time taken for jobs to complete execution with seconds as unit.")
+	c.JSON(http.StatusOK, summary)
+}
+
+func GetTotalLatencyMetrics(c *gin.Context) {
+	from, to, ok := utils.ParseTimeParams(c)
+	if !ok {
+		return
+	}
+
+	var commitHash *string
+	if hash := c.Query("commit_hash"); hash != "" {
+		commitHash = &hash
+	}
+
+	p := persister.NewDBPersister()
+	latencies, err := p.GetTotalLatenciesSummaryInRange(from, to, commitHash)
+	if err != nil {
+		log.Println("Error fetching total latency summary:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latency summary"})
+		return
+	}
+
+	if len(latencies) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
+		return
+	}
+
+	summary := calculateSummary(latencies, "Total Latency Summary representing the end-to-end time from job creation to job completion (seconds).")
+	c.JSON(http.StatusOK, summary)
+}
+
+func sum(data []int64) int64 {
+	total := int64(0)
+	for _, v := range data {
+		total += v
+	}
+	return total
+}
+
+func renderPlotAsPNG(c *gin.Context, title, xLabel, yLabel string, data []int64, bins int) {
+	if len(data) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"message": "No data to plot"})
+		return
+	}
+
+	values := make(plotter.Values, len(data))
+	for i, val := range data {
+		values[i] = float64(val)
 	}
 
 	pg := plot.New()
-	pg.Title.Text = "Total Latency Distribution"
-	pg.X.Label.Text = "Total Latency (s)"
-	pg.Y.Label.Text = "Frequency"
+	pg.Title.Text = title
+	pg.X.Label.Text = xLabel
+	pg.Y.Label.Text = yLabel
 
-	h, err := plotter.NewHist(values, 20)
+	h, err := plotter.NewHist(values, bins)
 	if err != nil {
 		log.Println("Error creating histogram:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create histogram"})
+		return
 	}
 	pg.Add(h)
 
@@ -200,163 +228,25 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 	c.Writer.Write(buffer.Bytes())
 }
 
-func GetQueueLatencyMetrics(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
+func calculateSummary(data []int64, description string) MetricSummary {
+	n := len(data)
+	sort.Slice(data, func(i, j int) bool { return data[i] < data[j] })
 
-	var commitHash *string
-	hash := c.Query("commit_hash")
-	if hash != "" {
-		commitHash = &hash
-	}
+	average := sum(data) / int64(n)
+	median := data[n/2]
+	q25 := data[int(math.Floor(float64(n)/4))]
+	q75 := data[int(math.Floor(float64(n)*3/4))]
+	maxVal := data[n-1]
+	minVal := data[0]
 
-	p := persister.NewDBPersister()
-	latencies, err := p.GetQueueLatencySummaryInRange(from, to, commitHash)
-	if err != nil {
-		log.Println("Error fetching queue latency summary:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latency summary"})
-		return
-	}
-
-	n := len(latencies)
-	if n == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
-		return
-	}
-
-	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
-
-	average := sum(latencies) / int64(n)
-	median := latencies[n/2]
-	q25 := latencies[int(math.Floor(float64(n)/4))]
-	q75 := latencies[int(math.Floor(float64(n)*3/4))]
-	maxLatency := latencies[n-1]
-	minLatency := latencies[0]
-
-	description := "Queue Latency Summary representing the time taken for jobs to be queued before execution with seconds as unit."
-
-	summary := MetricSummary{
+	return MetricSummary{
 		Description: description,
 		TotalJobs:   n,
 		Average:     average,
 		Median:      median,
 		Q25:         q25,
 		Q75:         q75,
-		Max:         maxLatency,
-		Min:         minLatency,
+		Max:         maxVal,
+		Min:         minVal,
 	}
-
-	c.JSON(http.StatusOK, summary)
-}
-
-func GetBuildTimeMetrics(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
-
-	var commitHash *string
-	hash := c.Query("commit_hash")
-	if hash != "" {
-		commitHash = &hash
-	}
-
-	p := persister.NewDBPersister()
-	buildTimes, err := p.GetBuildTimeSummaryInRange(from, to, commitHash)
-	if err != nil {
-		log.Println("Error fetching build time summary:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build time summary"})
-		return
-	}
-
-	n := len(buildTimes)
-	if n == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
-		return
-	}
-
-	sort.Slice(buildTimes, func(i, j int) bool { return buildTimes[i] < buildTimes[j] })
-
-	average := sum(buildTimes) / int64(n)
-	median := buildTimes[n/2]
-	q25 := buildTimes[int(math.Floor(float64(n)/4))]
-	q75 := buildTimes[int(math.Floor(float64(n)*3/4))]
-	maxBuildTime := buildTimes[n-1]
-	minBuildTime := buildTimes[0]
-
-	description := "Build Time Summary representing the time taken for jobs to complete execution with seconds as unit."
-
-	summary := MetricSummary{
-		Description: description,
-		TotalJobs:   n,
-		Average:     average,
-		Median:      median,
-		Q25:         q25,
-		Q75:         q75,
-		Max:         maxBuildTime,
-		Min:         minBuildTime,
-	}
-
-	c.JSON(http.StatusOK, summary)
-}
-
-func GetTotalLatencyMetrics(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
-
-	var commitHash *string
-	hash := c.Query("commit_hash")
-	if hash != "" {
-		commitHash = &hash
-	}
-
-	p := persister.NewDBPersister()
-	latencies, err := p.GetTotalLatenciesSummaryInRange(from, to, commitHash)
-	if err != nil {
-		log.Println("Error fetching total latency summary:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latency summary"})
-		return
-	}
-
-	n := len(latencies)
-	if n == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
-		return
-	}
-
-	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
-
-	average := sum(latencies) / int64(n)
-	median := latencies[n/2]
-	q25 := latencies[int(math.Floor(float64(n)/4))]
-	q75 := latencies[int(math.Floor(float64(n)*3/4))]
-	maxLatency := latencies[n-1]
-	minLatency := latencies[0]
-
-	description := "Total Latency Summary representing the end-to-end time from job creation to job completion (seconds)."
-
-	summary := MetricSummary{
-		Description: description,
-		TotalJobs:   n,
-		Average:     average,
-		Median:      median,
-		Q25:         q25,
-		Q75:         q75,
-		Max:         maxLatency,
-		Min:         minLatency,
-	}
-
-	c.JSON(http.StatusOK, summary)
-}
-
-func sum(data []int64) int64 {
-	total := int64(0)
-	for _, v := range data {
-		total += v
-	}
-	return total
 }
