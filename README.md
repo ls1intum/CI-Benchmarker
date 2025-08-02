@@ -32,7 +32,7 @@ Start in dev mode
 
 Make sure the generated types still work ;)
 
-# Deployment on a VM with publich IP
+# Deployment on a VM with public IP
 First run
 ```bash
     chmod 600 traefik/acme.json
