@@ -188,7 +188,9 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 	png := vgimg.PngCanvas{Canvas: img}
 	buffer := new(bytes.Buffer)
 	if _, err := png.WriteTo(buffer); err != nil {
-		log.Fatal(err)
+		log.Println("Error writing PNG to buffer:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate image"})
+		return
 	}
 
 	c.Header("Content-Type", "image/png")
