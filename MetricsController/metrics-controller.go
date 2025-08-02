@@ -282,7 +282,7 @@ func GetBuildTimeMetrics(c *gin.Context) {
 	maxBuildTime := buildTimes[n-1]
 	minBuildTime := buildTimes[0]
 
-	description := "Build Time Summary from representing the time taken for jobs to complete execution with seconds as unit."
+	description := "Build Time Summary representing the time taken for jobs to complete execution with seconds as unit."
 
 	summary := MetricSummary{
 		Description: description,
