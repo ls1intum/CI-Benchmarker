@@ -76,7 +76,7 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 	png := vgimg.PngCanvas{Canvas: img}
 	buffer := new(bytes.Buffer)
 	if _, err := png.WriteTo(buffer); err != nil {
-		log.Fatal(err)
+		log.Println("Error writing PNG to buffer:", err)
 	}
 
 	c.Header("Content-Type", "image/png")
@@ -121,7 +121,7 @@ func GetBuildTimeHistogram(c *gin.Context) {
 
 	h, err := plotter.NewHist(values, 20)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Error creating histogram:", err)
 	}
 	pg.Add(h)
 
