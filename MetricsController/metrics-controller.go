@@ -233,7 +233,12 @@ func calculateSummary(data []int64, description string) MetricSummary {
 	sort.Slice(data, func(i, j int) bool { return data[i] < data[j] })
 
 	average := sum(data) / int64(n)
-	median := data[n/2]
+	var median int64
+	if n%2 == 1 {
+		median = data[n/2]
+	} else {
+		median = (data[n/2-1] + data[n/2]) / 2
+	}
 	q25 := data[int(math.Floor(float64(n)/4))]
 	q75 := data[int(math.Floor(float64(n)*3/4))]
 	maxVal := data[n-1]
