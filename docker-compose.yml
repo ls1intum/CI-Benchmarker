@@ -1,24 +1,19 @@
-version: '3.8'
+version: "3.8"
 
 services:
   traefik:
     image: traefik:v3.0
     container_name: traefik
     command:
-      - "--api.dashboard=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.email=shuaiwei.yu@tum.de"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme.json"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--providers.docker=true"
+      - "--configFile=/etc/traefik/traefik.yml"
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/acme.json:/etc/traefik/acme.json
+    restart: always
 
   benchmarker:
     build: .
@@ -32,6 +27,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.benchmarker.rule=Host(`ma-yu.aet.cit.tum.de`)"
-      - "traefik.http.routers.benchmarker.entrypoints=websecure"
+      - "traefik.http.routers.benchmarker.entrypoints=web,websecure"   # 接受 80、443
       - "traefik.http.routers.benchmarker.tls.certresolver=letsencrypt"
       - "traefik.http.services.benchmarker.loadbalancer.server.port=8080"
