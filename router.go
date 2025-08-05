@@ -1,11 +1,16 @@
 package main
 
 import (
+	_ "github.com/Mtze/CI-Benchmarker/docs"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"log/slog"
 	"time"
 
 	"github.com/Mtze/CI-Benchmarker/MetricsController"
 	"github.com/Mtze/CI-Benchmarker/benchmarkController"
+	_ "github.com/Mtze/CI-Benchmarker/shared/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -34,6 +39,9 @@ func startRouter() *gin.Engine {
 
 	// Register the route for the start of the job
 	slog.Debug("Setting up routes")
+
+	version.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	version.POST("/result", handleResult)
 
 	version.POST("/start_time", handleStartTime)
@@ -56,8 +64,15 @@ func startRouter() *gin.Engine {
 	return r
 }
 
-// handleResult is a function to handle the result of a job
-// The last container in the pipeline will send the result to this endpoint
+// @Summary      Receive job result
+// @Description  This endpoint handles the result of a job, The last container in the pipeline should send the result to this endpoint
+// @Tags         result
+// @Accept       json
+// @Produce      json
+// @Param        resultMetadata  body  ResultMetadata  true  "Job Result Metadata"
+// @Success      200  {object}  response.SimpleMessage
+// @Failure 	 400  {object} 	response.ErrorMessage
+// @Router       /result [post]
 func handleResult(c *gin.Context) {
 	slog.Debug("Received result", slog.Any("result", c.Request.Body))
 
@@ -88,6 +103,15 @@ func handleResult(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Result received"})
 }
 
+// @Summary      Receive build start time
+// @Description  Submit job start time for benchmarking
+// @Tags         start_time
+// @Accept       json
+// @Produce      json
+// @Param        jobStartTime  body  JobStartTime  true  "Build Start Time"
+// @Success      200  {object}  response.SimpleMessage
+// @Failure      400  {object}  response.ErrorMessage
+// @Router       /start_time [post]
 func handleStartTime(c *gin.Context) {
 	slog.Debug("Received job start time information", slog.Any("time", c.Request.Body))
 

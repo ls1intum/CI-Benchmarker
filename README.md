@@ -20,6 +20,18 @@ Start in dev mode
   DEBUG=True go run .
 ```
 
+### Generate Open API spec
+Install swag by using:
+```bash
+  go install github.com/swaggo/swag/cmd/swag@latest
+```
+
+Run swag init in the project's root folder which contains the main.go file. This will parse your comments and generate the required files (docs folder and docs/docs.go).
+
+```bash
+  swag init
+```
+
 ### Generate DB code
 
 - Update the `sqlc.yaml` file with the correct connection string

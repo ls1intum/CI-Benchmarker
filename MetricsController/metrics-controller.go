@@ -3,6 +3,7 @@ package MetricsController
 import (
 	"bytes"
 	"github.com/Mtze/CI-Benchmarker/persister"
+	_ "github.com/Mtze/CI-Benchmarker/shared/response"
 	"github.com/Mtze/CI-Benchmarker/shared/utils"
 	"github.com/gin-gonic/gin"
 	"gonum.org/v1/plot"
@@ -15,17 +16,37 @@ import (
 	"sort"
 )
 
+// MetricSummary describes percentile statistics of a metric.
+//
+// @Description Percentile and descriptive statistics for a metric (latency / build time).
 type MetricSummary struct {
-	Description string `json:"description"`
-	TotalJobs   int    `json:"total_jobs"`
-	Average     int64  `json:"average"`
-	Median      int64  `json:"median"`
-	Q25         int64  `json:"q25"`
-	Q75         int64  `json:"q75"`
-	Max         int64  `json:"max"`
-	Min         int64  `json:"min"`
+	Description string `json:"description" example:"Queue Latency Summary representing the time taken for jobs to be queued before execution with seconds as unit."`
+	TotalJobs   int    `json:"total_jobs" example:"125"`
+	Average     int64  `json:"average"    example:"12"`
+	Median      int64  `json:"median"     example:"11"`
+	Q25         int64  `json:"q25"        example:"8"`
+	Q75         int64  `json:"q75"        example:"15"`
+	Max         int64  `json:"max"        example:"40"`
+	Min         int64  `json:"min"        example:"2"`
 }
 
+//------------------------------------------------------------------------------
+// Histogram End-points (PNG image)
+//------------------------------------------------------------------------------
+
+// GetQueueLatencyHistogram godoc
+//
+// @Summary      Histogram of queue latency
+// @Description  Returns a PNG histogram showing distribution of queue latency (seconds).
+// @Tags         metrics
+// @Produce      png
+// @Param        from         query  string  false  "Start time (RFC3339)"
+// @Param        to           query  string  false  "End time (RFC3339)"
+// @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Success      200  {string}  binary  "PNG image"
+// @Failure 	 400  {object} 	response.ErrorMessage
+// @Failure      500  {object}  response.ServerErrorMessage
+// @Router       /benchmark/queue_latency/histogram [get]
 func GetQueueLatencyHistogram(c *gin.Context) {
 	from, to, ok := utils.ParseTimeParams(c)
 	if !ok {
@@ -33,8 +54,7 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 	}
 
 	var commitHash *string
-	hash := c.Query("commit_hash")
-	if hash != "" {
+	if hash := c.Query("commit_hash"); hash != "" {
 		commitHash = &hash
 	}
 
@@ -49,6 +69,19 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 	renderPlotAsPNG(c, "Queue Latency Distribution", "Queue Latency (s)", "Frequency", latencies, 20)
 }
 
+// GetBuildTimeHistogram godoc
+//
+// @Summary      Histogram of build time
+// @Description  Returns a PNG histogram showing distribution of build time (seconds).
+// @Tags         metrics
+// @Produce      png
+// @Param        from         query  string  false  "Start time (RFC3339)"
+// @Param        to           query  string  false  "End time (RFC3339)"
+// @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Success      200  {string}  binary  "PNG image"
+// @Failure 	 400  {object} 	response.ErrorMessage
+// @Failure      500  {object}   response.ServerErrorMessage
+// @Router       /benchmark/build_time/histogram [get]
 func GetBuildTimeHistogram(c *gin.Context) {
 	from, to, ok := utils.ParseTimeParams(c)
 	if !ok {
@@ -56,8 +89,7 @@ func GetBuildTimeHistogram(c *gin.Context) {
 	}
 
 	var commitHash *string
-	hash := c.Query("commit_hash")
-	if hash != "" {
+	if hash := c.Query("commit_hash"); hash != "" {
 		commitHash = &hash
 	}
 
@@ -72,6 +104,19 @@ func GetBuildTimeHistogram(c *gin.Context) {
 	renderPlotAsPNG(c, "Build Time Distribution", "Build Time (s)", "Frequency", buildTimes, 20)
 }
 
+// GetTotalLatencyHistogram godoc
+//
+// @Summary      Histogram of total latency
+// @Description  Returns a PNG histogram showing distribution of total latency (seconds).
+// @Tags         metrics
+// @Produce      png
+// @Param        from         query  string  false  "Start time (RFC3339)"
+// @Param        to           query  string  false  "End time (RFC3339)"
+// @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Success      200  {string}  binary  "PNG image"
+// @Failure 	 400  {object} 	response.ErrorMessage
+// @Failure      500  {object}   response.ServerErrorMessage
+// @Router       /benchmark/latency/histogram [get]
 func GetTotalLatencyHistogram(c *gin.Context) {
 	from, to, ok := utils.ParseTimeParams(c)
 	if !ok {
@@ -79,8 +124,7 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 	}
 
 	var commitHash *string
-	hash := c.Query("commit_hash")
-	if hash != "" {
+	if hash := c.Query("commit_hash"); hash != "" {
 		commitHash = &hash
 	}
 
@@ -95,6 +139,24 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 	renderPlotAsPNG(c, "Total Latency Distribution", "Total Latency (s)", "Frequency", latencies, 20)
 }
 
+//------------------------------------------------------------------------------
+// Metrics Summary End-points (JSON)
+//------------------------------------------------------------------------------
+
+// GetQueueLatencyMetrics godoc
+//
+// @Summary      Queue latency statistics
+// @Description  Returns percentile & descriptive statistics for queue latency.
+// @Tags         metrics
+// @Produce      json
+// @Param        from         query  string  false  "Start time (RFC3339)"
+// @Param        to           query  string  false  "End time (RFC3339)"
+// @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Success      200  {object}  MetricSummary
+// @Failure      400  {object}   response.ErrorMessage
+// @Failure      404  {object}   response.NotFoundMessage
+// @Failure      500  {object}   response.ServerErrorMessage
+// @Router       /benchmark/queue_latency/metrics [get]
 func GetQueueLatencyMetrics(c *gin.Context) {
 	from, to, ok := utils.ParseTimeParams(c)
 	if !ok {
@@ -123,6 +185,20 @@ func GetQueueLatencyMetrics(c *gin.Context) {
 	c.JSON(http.StatusOK, summary)
 }
 
+// GetBuildTimeMetrics godoc
+//
+// @Summary      Build time statistics
+// @Description  Returns percentile & descriptive statistics for build time.
+// @Tags         metrics
+// @Produce      json
+// @Param        from         query  string  false  "Start time (RFC3339)"
+// @Param        to           query  string  false  "End time (RFC3339)"
+// @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Success      200  {object}  MetricSummary
+// @Failure      400  {object}   response.ErrorMessage
+// @Failure      404  {object}   response.NotFoundMessage
+// @Failure      500  {object}   response.ServerErrorMessage
+// @Router       /benchmark/build_time/metrics [get]
 func GetBuildTimeMetrics(c *gin.Context) {
 	from, to, ok := utils.ParseTimeParams(c)
 	if !ok {
@@ -151,6 +227,20 @@ func GetBuildTimeMetrics(c *gin.Context) {
 	c.JSON(http.StatusOK, summary)
 }
 
+// GetTotalLatencyMetrics godoc
+//
+// @Summary      Total latency statistics
+// @Description  Returns percentile & descriptive statistics for total latency.
+// @Tags         metrics
+// @Produce      json
+// @Param        from         query  string  false  "Start time (RFC3339)"
+// @Param        to           query  string  false  "End time (RFC3339)"
+// @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Success      200  {object}  MetricSummary
+// @Failure      400  {object}   response.ErrorMessage
+// @Failure      404  {object}   response.NotFoundMessage
+// @Failure      500  {object}   response.ServerErrorMessage
+// @Router       /benchmark/latency/metrics [get]
 func GetTotalLatencyMetrics(c *gin.Context) {
 	from, to, ok := utils.ParseTimeParams(c)
 	if !ok {
@@ -178,6 +268,10 @@ func GetTotalLatencyMetrics(c *gin.Context) {
 	summary := calculateSummary(latencies, "Total Latency Summary representing the end-to-end time from job creation to job completion (seconds).")
 	c.JSON(http.StatusOK, summary)
 }
+
+//------------------------------------------------------------------------------
+// Helper functions (unchanged)
+//------------------------------------------------------------------------------
 
 func sum(data []int64) int64 {
 	total := int64(0)

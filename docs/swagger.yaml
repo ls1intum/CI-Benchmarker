@@ -1,0 +1,367 @@
+basePath: /v1
+definitions:
+  MetricsController.MetricSummary:
+    description: Percentile and descriptive statistics for a metric (latency / build
+      time).
+    properties:
+      average:
+        example: 12
+        type: integer
+      description:
+        example: Queue Latency Summary representing the time taken for jobs to be
+          queued before execution with seconds as unit.
+        type: string
+      max:
+        example: 40
+        type: integer
+      median:
+        example: 11
+        type: integer
+      min:
+        example: 2
+        type: integer
+      q25:
+        example: 8
+        type: integer
+      q75:
+        example: 15
+        type: integer
+      total_jobs:
+        example: 125
+        type: integer
+    type: object
+  main.JobStartTime:
+    properties:
+      buildStartTime:
+        type: string
+      uuid:
+        type: string
+    type: object
+  main.ResultMetadata:
+    properties:
+      assignmentRepoBranchName:
+        type: string
+      assignmentRepoCommitHash:
+        type: string
+      buildCompletionTime:
+        type: string
+      isBuildSuccessful:
+        type: boolean
+      jobName:
+        type: string
+      testsRepoCommitHash:
+        type: string
+      uuid:
+        type: string
+    type: object
+  response.ErrorMessage:
+    properties:
+      error:
+        example: Failed to parse UUID
+        type: string
+    type: object
+  response.NotFoundMessage:
+    properties:
+      error:
+        example: resource not found
+        type: string
+    type: object
+  response.ServerErrorMessage:
+    properties:
+      error:
+        example: Internal server error
+        type: string
+    type: object
+  response.SimpleMessage:
+    properties:
+      message:
+        example: Result received
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: yu.shuaiwei@tum.de
+    name: Shuaiwei Yu
+    url: https://github.com/Mtze
+  description: Benchmark system collecting CI latency, build time and metrics.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://github.com/Mtze/CI-Benchmarker
+  title: CI-Benchmarker API
+  version: "1.0"
+paths:
+  /benchmark/build_time/histogram:
+    get:
+      description: Returns a PNG histogram showing distribution of build time (seconds).
+      parameters:
+      - description: Start time (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: End time (RFC3339)
+        in: query
+        name: to
+        type: string
+      - description: Optional commit hash filter
+        in: query
+        name: commit_hash
+        type: string
+      produces:
+      - image/png
+      responses:
+        "200":
+          description: PNG image
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Histogram of build time
+      tags:
+      - metrics
+  /benchmark/build_time/metrics:
+    get:
+      description: Returns percentile & descriptive statistics for build time.
+      parameters:
+      - description: Start time (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: End time (RFC3339)
+        in: query
+        name: to
+        type: string
+      - description: Optional commit hash filter
+        in: query
+        name: commit_hash
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MetricsController.MetricSummary'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.NotFoundMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Build time statistics
+      tags:
+      - metrics
+  /benchmark/latency/histogram:
+    get:
+      description: Returns a PNG histogram showing distribution of total latency (seconds).
+      parameters:
+      - description: Start time (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: End time (RFC3339)
+        in: query
+        name: to
+        type: string
+      - description: Optional commit hash filter
+        in: query
+        name: commit_hash
+        type: string
+      produces:
+      - image/png
+      responses:
+        "200":
+          description: PNG image
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Histogram of total latency
+      tags:
+      - metrics
+  /benchmark/latency/metrics:
+    get:
+      description: Returns percentile & descriptive statistics for total latency.
+      parameters:
+      - description: Start time (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: End time (RFC3339)
+        in: query
+        name: to
+        type: string
+      - description: Optional commit hash filter
+        in: query
+        name: commit_hash
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MetricsController.MetricSummary'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.NotFoundMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Total latency statistics
+      tags:
+      - metrics
+  /benchmark/queue_latency/histogram:
+    get:
+      description: Returns a PNG histogram showing distribution of queue latency (seconds).
+      parameters:
+      - description: Start time (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: End time (RFC3339)
+        in: query
+        name: to
+        type: string
+      - description: Optional commit hash filter
+        in: query
+        name: commit_hash
+        type: string
+      produces:
+      - image/png
+      responses:
+        "200":
+          description: PNG image
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Histogram of queue latency
+      tags:
+      - metrics
+  /benchmark/queue_latency/metrics:
+    get:
+      description: Returns percentile & descriptive statistics for queue latency.
+      parameters:
+      - description: Start time (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: End time (RFC3339)
+        in: query
+        name: to
+        type: string
+      - description: Optional commit hash filter
+        in: query
+        name: commit_hash
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MetricsController.MetricSummary'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.NotFoundMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Queue latency statistics
+      tags:
+      - metrics
+  /result:
+    post:
+      consumes:
+      - application/json
+      description: This endpoint handles the result of a job, The last container in
+        the pipeline should send the result to this endpoint
+      parameters:
+      - description: Job Result Metadata
+        in: body
+        name: resultMetadata
+        required: true
+        schema:
+          $ref: '#/definitions/main.ResultMetadata'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SimpleMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+      summary: Receive job result
+      tags:
+      - result
+  /start_time:
+    post:
+      consumes:
+      - application/json
+      description: Submit job start time for benchmarking
+      parameters:
+      - description: Build Start Time
+        in: body
+        name: jobStartTime
+        required: true
+        schema:
+          $ref: '#/definitions/main.JobStartTime'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.SimpleMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+      summary: Receive build start time
+      tags:
+      - start_time
+schemes:
+- http
+- https
+swagger: "2.0"
