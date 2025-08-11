@@ -27,7 +27,7 @@ body:json {
       {
         "id": 1,
         "name": "Report Starting Time",
-        "image": "ghcr.io/shuaiweiyu/hades-reporter:latest",
+        "image": "ghcr.io/ls1intum/hades-reporter/hades-reporter:latest",
         "metadata": {
           "ENDPOINT": "https://hades-benchmarker.wei-tech.site/v1/start_time"
         }
@@ -59,7 +59,7 @@ body:json {
       {
         "id": 4,
         "name": "Result",
-        "image": "ghcr.io/shuaiweiyu/hades-result-parser:latest",
+        "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
         "metadata": {
           "API_ENDPOINT": "https://hades-benchmarker.wei-tech.site/v1/result",
           "INGEST_DIR":"./shared/example",
