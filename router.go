@@ -47,7 +47,7 @@ func startRouter() *gin.Engine {
 	version.POST("/start_time", handleStartTime)
 
 	// Register the route for the benchmark executors
-	version.POST("/benchmark/hades", benchmarkController.NewHadesBenchmark().HandleFunc)
+	version.POST("/benchmark/hades", benchmarkController.NewHadesBenchmark())
 
 	version.GET("benchmark/latency/histogram", MetricsController.GetTotalLatencyHistogram)
 

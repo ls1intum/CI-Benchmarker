@@ -1,12 +1,14 @@
 package benchmarkController
 
 import (
-	"github.com/ls1intum/hades/shared/payload"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/ls1intum/hades/shared/payload"
 
 	"github.com/Mtze/CI-Benchmarker/executor"
 	"github.com/Mtze/CI-Benchmarker/persister"
@@ -55,9 +57,11 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 	// Run the benchmark
 	slog.Debug("Running jobs", slog.Any("count", count))
 	b.JobCounter = count
-	b.run(restPayload, commitHash)
-
-	c.JSON(200, gin.H{"message": "Benchmark started"})
+	if err := b.run(restPayload, commitHash); err != nil {
+		c.JSON(400, gin.H{"message": "Benchmark failed", "error": err.Error()})
+	} else {
+		c.JSON(200, gin.H{"message": "Benchmark started"})
+	}
 }
 
 // run executes the benchmark jobs concurrently. It logs the start of job execution,
@@ -67,9 +71,11 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 // The function logs various stages of job execution, including the start of job
 // scheduling, any errors encountered during execution, and the successful storage
 // of job results.
-func (b Benchmark) run(payload payload.RESTPayload, commitHash *string) {
+func (b Benchmark) run(payload payload.RESTPayload, commitHash *string) error {
 	slog.Info("Running jobs", slog.Any("number", b.JobCounter), slog.Any("executor", b.Executor))
 	var wg sync.WaitGroup
+	var runErr error
+	var mu sync.Mutex
 
 	for i := 0; i < b.JobCounter; i++ {
 		wg.Add(1)
@@ -78,10 +84,13 @@ func (b Benchmark) run(payload payload.RESTPayload, commitHash *string) {
 			defer wg.Done()
 			slog.Debug("Scheduling job", slog.Int("index", jobIndex))
 
-			// Execute the job
 			uuid, err := b.Executor.Execute(payload)
 			if err != nil {
-				slog.Error("Error while scheduling job", slog.Int("index", jobIndex), slog.Any("error", err))
+				mu.Lock()
+				if runErr == nil {
+					runErr = fmt.Errorf("job %d: error while scheduling job: %w", jobIndex, err)
+				}
+				mu.Unlock()
 				return
 			}
 
@@ -94,4 +103,5 @@ func (b Benchmark) run(payload payload.RESTPayload, commitHash *string) {
 	}
 
 	wg.Wait()
+	return runErr
 }
