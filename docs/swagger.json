@@ -1,0 +1,549 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Benchmark system collecting CI latency, build time and metrics.",
+        "title": "CI-Benchmarker API",
+        "termsOfService": "https://github.com/Mtze/CI-Benchmarker",
+        "contact": {
+            "name": "Shuaiwei Yu",
+            "url": "https://github.com/Mtze",
+            "email": "yu.shuaiwei@tum.de"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/v1",
+    "paths": {
+        "/benchmark/build_time/histogram": {
+            "get": {
+                "description": "Returns a PNG histogram showing distribution of build time (seconds).",
+                "produces": [
+                    "image/png"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Histogram of build time",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional commit hash filter",
+                        "name": "commit_hash",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PNG image",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/build_time/metrics": {
+            "get": {
+                "description": "Returns percentile \u0026 descriptive statistics for build time.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Build time statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional commit hash filter",
+                        "name": "commit_hash",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MetricsController.MetricSummary"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.NotFoundMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/latency/histogram": {
+            "get": {
+                "description": "Returns a PNG histogram showing distribution of total latency (seconds).",
+                "produces": [
+                    "image/png"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Histogram of total latency",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional commit hash filter",
+                        "name": "commit_hash",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PNG image",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/latency/metrics": {
+            "get": {
+                "description": "Returns percentile \u0026 descriptive statistics for total latency.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Total latency statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional commit hash filter",
+                        "name": "commit_hash",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MetricsController.MetricSummary"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.NotFoundMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/queue_latency/histogram": {
+            "get": {
+                "description": "Returns a PNG histogram showing distribution of queue latency (seconds).",
+                "produces": [
+                    "image/png"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Histogram of queue latency",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional commit hash filter",
+                        "name": "commit_hash",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PNG image",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/queue_latency/metrics": {
+            "get": {
+                "description": "Returns percentile \u0026 descriptive statistics for queue latency.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Queue latency statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional commit hash filter",
+                        "name": "commit_hash",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MetricsController.MetricSummary"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.NotFoundMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/result": {
+            "post": {
+                "description": "This endpoint handles the result of a job, The last container in the pipeline should send the result to this endpoint",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "result"
+                ],
+                "summary": "Receive job result",
+                "parameters": [
+                    {
+                        "description": "Job Result Metadata",
+                        "name": "resultMetadata",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/main.ResultMetadata"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SimpleMessage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/start_time": {
+            "post": {
+                "description": "Submit job start time for benchmarking",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "start_time"
+                ],
+                "summary": "Receive build start time",
+                "parameters": [
+                    {
+                        "description": "Build Start Time",
+                        "name": "jobStartTime",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/main.JobStartTime"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.SimpleMessage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "MetricsController.MetricSummary": {
+            "description": "Percentile and descriptive statistics for a metric (latency / build time).",
+            "type": "object",
+            "properties": {
+                "average": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Queue Latency Summary representing the time taken for jobs to be queued before execution with seconds as unit."
+                },
+                "max": {
+                    "type": "integer",
+                    "example": 40
+                },
+                "median": {
+                    "type": "integer",
+                    "example": 11
+                },
+                "min": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "q25": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "q75": {
+                    "type": "integer",
+                    "example": 15
+                },
+                "total_jobs": {
+                    "type": "integer",
+                    "example": 125
+                }
+            }
+        },
+        "main.JobStartTime": {
+            "type": "object",
+            "properties": {
+                "buildStartTime": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "main.ResultMetadata": {
+            "type": "object",
+            "properties": {
+                "assignmentRepoBranchName": {
+                    "type": "string"
+                },
+                "assignmentRepoCommitHash": {
+                    "type": "string"
+                },
+                "buildCompletionTime": {
+                    "type": "string"
+                },
+                "isBuildSuccessful": {
+                    "type": "boolean"
+                },
+                "jobName": {
+                    "type": "string"
+                },
+                "testsRepoCommitHash": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "response.ErrorMessage": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Failed to parse UUID"
+                }
+            }
+        },
+        "response.NotFoundMessage": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "resource not found"
+                }
+            }
+        },
+        "response.ServerErrorMessage": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Internal server error"
+                }
+            }
+        },
+        "response.SimpleMessage": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Result received"
+                }
+            }
+        }
+    }
+}

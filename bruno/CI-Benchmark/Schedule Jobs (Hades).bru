@@ -1,17 +1,18 @@
 meta {
   name: Schedule Jobs (Hades)
   type: http
-  seq: 3
+  seq: 2
 }
 
 post {
-  url: http://{{hostname}}/v1/benchmark/hades?count=1
+  url: https://{{hostname}}/v1/benchmark/hades?count=50&commit_hash=123456
   body: json
   auth: none
 }
 
 params:query {
-  count: 1
+  count: 50
+  commit_hash: 123456
 }
 
 body:json {
@@ -24,7 +25,15 @@ body:json {
     "priority": 3, // optional, default 3
     "steps": [
       {
-        "id": 1, // mandatory to declare the order of execution
+        "id": 1,
+        "name": "Report Starting Time",
+        "image": "ghcr.io/ls1intum/hades-reporter/hades-reporter:latest",
+        "metadata": {
+          "ENDPOINT": "https://hades-benchmarker.wei-tech.site/v1/start_time"
+        }
+      },
+      {
+        "id": 2, // mandatory to declare the order of execution
         "name": "Clone",
         "image": "ghcr.io/ls1intum/hades/hades-clone-container:latest", // mandatory
         "metadata": {
@@ -42,11 +51,29 @@ body:json {
         }
       },
       {
-        "id": 2, // mandatory to declare the order of execution
+        "id": 3, // mandatory to declare the order of execution
         "name": "Execute",
         "image": "ls1tum/artemis-maven-template:java17-18", // mandatory
-        "script": "set +e && cd ./shared/example || exit 0 && ./gradlew --status || exit 0 && ./gradlew clean test || exit 0"
+        "script": "set -e && cd /shared/example && ./gradlew --status && ./gradlew clean test"
+      },
+      {
+        "id": 4,
+        "name": "Result",
+        "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
+        "metadata": {
+          "API_ENDPOINT": "https://hades-benchmarker.wei-tech.site/v1/result",
+          "INGEST_DIR":"./shared/example",
+          "HADES_TEST_PATH": "./example",
+          "HADES_ASSIGNMENT_PATH": "./example/assignment"
+        }
       }
     ]
   }
+}
+
+vars:pre-request {
+  user: 
+  password: 
+  test_repo: https://github.com/Mtze/Artemis-Java-Test.git
+  assignment_repo: https://github.com/Mtze/Artemis-Java-Solution.git
 }

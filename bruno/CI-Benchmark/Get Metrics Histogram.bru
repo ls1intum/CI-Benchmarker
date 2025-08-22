@@ -1,0 +1,17 @@
+meta {
+  name: Get Metrics Histogram
+  type: http
+  seq: 10
+}
+
+get {
+  url: http://{{hostname}}/v1/benchmark/latency/histogram
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~commit_hash: 123456
+  ~from: 2025-05-01T22:00:00
+  ~to: 2025-05-14T22:00:00
+}

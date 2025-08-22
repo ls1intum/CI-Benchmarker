@@ -7,7 +7,7 @@
 ## Usage
 
 ```bash
-docker-compose up
+  docker-compose up
 ```
 
 Use the [bruno](https://www.usebruno.com/) examples in the `docs` folder to test the system
@@ -17,7 +17,19 @@ Use the [bruno](https://www.usebruno.com/) examples in the `docs` folder to test
 Start in dev mode
 
 ```bash
-DEBUG=True go run .
+  DEBUG=True go run .
+```
+
+### Generate Open API spec
+Install swag by using:
+```bash
+  go install github.com/swaggo/swag/cmd/swag@latest
+```
+
+Run swag init in the project's root folder which contains the main.go file. This will parse your comments and generate the required files (docs folder and docs/docs.go).
+
+```bash
+  swag init
 ```
 
 ### Generate DB code
@@ -27,7 +39,19 @@ DEBUG=True go run .
 - Update the `queries.sql` file with the correct queries
 
 ```bash
-sqlc generate
+  sqlc generate
 ```
 
 Make sure the generated types still work ;)
+
+# Deployment on a VM with public IP
+First run
+```bash
+  touch traefik/acme.json
+  chmod 600 traefik/acme.json
+```
+
+Then run 
+```bash
+  docker compose up
+```

@@ -1,2 +1,6 @@
 benchmark.db
 **.bkp
+.idea
+.vscode
+.env
+traefik/acme.json

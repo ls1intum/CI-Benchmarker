@@ -1,6 +1,8 @@
 # Use an official Go runtime as a parent image
 FROM golang:1.23-alpine AS builder
 
+RUN apk add --no-cache gcc musl-dev
+
 # Set the working directory inside the container
 WORKDIR /app
 
@@ -10,7 +12,9 @@ RUN go mod download
 
 
 # Build the Go application
-RUN CGO_ENABLED=0 go build -o benchmarker .
+ENV CGO_ENABLED=1
+
+RUN go build -o benchmarker .
 
 # Start a new stage for the minimal runtime container
 FROM gcr.io/distroless/static-debian12

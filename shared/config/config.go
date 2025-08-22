@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/spf13/viper"
 	"log/slog"
+	"os"
 	"sync"
 )
 
@@ -16,16 +17,23 @@ var (
 	once sync.Once
 )
 
+func GetEnv(key string) string {
+	return os.Getenv(key)
+}
+
 func Load() Config {
 	once.Do(func() {
+		viper.AutomaticEnv()
+
 		viper.SetConfigName(".env")
 		viper.SetConfigType("env")
 		viper.AddConfigPath(".")
-		viper.AutomaticEnv()
-
 		if err := viper.ReadInConfig(); err != nil {
 			slog.Warn("No .env file found or failed to load it", "error", err)
 		}
+
+		_ = viper.BindEnv("HADES_HOST")
+		_ = viper.BindEnv("SERVER_ADDRESS")
 
 		if err := viper.Unmarshal(&cfg); err != nil {
 			slog.Error("Failed to unmarshal config", "error", err)

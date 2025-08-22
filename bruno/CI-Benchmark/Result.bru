@@ -1,7 +1,7 @@
 meta {
   name: Result
   type: http
-  seq: 2
+  seq: 4
 }
 
 post {
@@ -11,5 +11,13 @@ post {
 }
 
 body:json {
-  {"uuid": "tbd"}
+  {
+    "jobName": "example-job",
+    "uuid": "3b0bce02-43c6-4e66-8810-b7a0ac5b3a08",
+    "assignmentRepoBranchName": "main",
+    "isBuildSuccessful": true,
+    "assignmentRepoCommitHash": "abc123",
+    "testsRepoCommitHash": "def456",
+    "buildCompletionTime": "2025-06-04T15:54:39Z"
+  }
 }

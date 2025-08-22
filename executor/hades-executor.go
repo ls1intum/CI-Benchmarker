@@ -3,6 +3,7 @@ package executor
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -41,6 +42,10 @@ func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, erro
 	if err != nil {
 		slog.Debug("Error while sending POST request to Hades")
 		return uuid.UUID{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		slog.Debug("HadesExecutor returned non-200 status code")
+		return uuid.UUID{}, errors.New("HadesExecutor returned non-200 status code")
 	}
 	defer resp.Body.Close()
 	slog.Debug("HadesExecutor response", slog.Any("response", resp))

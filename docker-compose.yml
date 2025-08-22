@@ -1,9 +1,33 @@
-version: '3.8'
+version: "3.8"
 
 services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+      - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/acme.json:/etc/traefik/acme.json
+    restart: always
+
   benchmarker:
     build: .
     image: ghcr.io/mtze/ci-benchmarker/benchmarker:latest
     container_name: benchmarker
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
+    environment:
+      - SERVER_ADDRESS=8080
+      - HADES_HOST=http://localhost:8081/build
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.benchmarker.rule=Host(`ma-yu.aet.cit.tum.de`)
+      - traefik.http.routers.benchmarker.entrypoints=web,websecure
+      - traefik.http.routers.benchmarker.tls.certresolver=letsencrypt
+      - traefik.http.services.benchmarker.loadbalancer.server.port=8080

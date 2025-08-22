@@ -1,17 +1,23 @@
 package benchmarkController
 
 import (
+	"log/slog"
+
 	"github.com/Mtze/CI-Benchmarker/executor"
 	"github.com/Mtze/CI-Benchmarker/persister"
-	"github.com/Mtze/CI-Benchmarker/shared/config"
-	"log/slog"
+	"github.com/gin-gonic/gin"
 )
 
-func NewHadesBenchmark() Benchmark {
-	slog.Debug("Creating new Hades benchmark")
-	cfg := config.Load()
-	return Benchmark{
-		Executor:  executor.NewHadesExecutor(cfg.HadesHost),
-		Persister: persister.NewDBPersister(),
+func NewHadesBenchmark() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slog.Debug("Creating new Hades benchmark")
+
+		hadesHost := c.Query("host")
+		benchmark := Benchmark{
+			Executor:  executor.NewHadesExecutor(hadesHost),
+			Persister: persister.NewDBPersister(),
+		}
+
+		benchmark.HandleFunc(c)
 	}
 }
