@@ -19,7 +19,7 @@ const file string = "benchmark.db"
 // This interface is used to store the job and the result of the job
 // This implementation allows to abstract the concrete storage mechanism
 type Persister interface {
-	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, commitHash *string)
+	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, metaData string, commitHash *string)
 	StoreStartTime(uuid uuid.UUID, startTime time.Time)
 	StoreResult(uuid uuid.UUID, time time.Time)
 }
@@ -58,19 +58,29 @@ func NewDBPersister() DBPersister {
 	}
 }
 
-func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, commitHash *string) {
+func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, metaData string, commitHash *string) {
 	var nullableHash sql.NullString
 	if commitHash != nil {
 		nullableHash = sql.NullString{String: *commitHash, Valid: true}
 	} else {
 		nullableHash = sql.NullString{Valid: false}
 	}
-	d.queries.StoreScheduledJob(context.Background(), model.StoreScheduledJobParams{
-		ID:           uuid,
-		CreationTime: creationTime.UTC(),
-		Executor:     executor,
-		CommitHash:   nullableHash,
-	})
+	if metaData != "" {
+		d.queries.StoreScheduledJobWithMetadata(context.Background(), model.StoreScheduledJobWithMetadataParams{
+			ID:           uuid,
+			CreationTime: creationTime.UTC(),
+			Executor:     executor,
+			Metadata:     metaData,
+			CommitHash:   nullableHash,
+		})
+	} else {
+		d.queries.StoreScheduledJob(context.Background(), model.StoreScheduledJobParams{
+			ID:           uuid,
+			CreationTime: creationTime.UTC(),
+			Executor:     executor,
+			CommitHash:   nullableHash,
+		})
+	}
 }
 
 func (d DBPersister) StoreStartTime(uuid uuid.UUID, startTime time.Time) {
