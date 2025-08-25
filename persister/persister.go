@@ -19,7 +19,7 @@ const file string = "benchmark.db"
 // This interface is used to store the job and the result of the job
 // This implementation allows to abstract the concrete storage mechanism
 type Persister interface {
-	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, metaData string, commitHash *string)
+	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string)
 	StoreStartTime(uuid uuid.UUID, startTime time.Time)
 	StoreResult(uuid uuid.UUID, time time.Time)
 }
