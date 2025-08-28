@@ -65,28 +65,24 @@ func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor s
 	} else {
 		nullableHash = sql.NullString{Valid: false}
 	}
-	var nullableMeta sql.NullString
-	if metaData != nil {
-		nullableMeta = sql.NullString{String: *metaData, Valid: true}
-	} else {
-		nullableMeta = sql.NullString{Valid: false}
+
+	nullableMeta := sql.NullString{
+		String: func() string {
+			if metaData != nil {
+				return *metaData
+			}
+			return ""
+		}(),
+		Valid: metaData != nil,
 	}
-	if metaData != nil {
-		d.queries.StoreScheduledJobWithMetadata(context.Background(), model.StoreScheduledJobWithMetadataParams{
-			ID:           uuid,
-			CreationTime: creationTime.UTC(),
-			Executor:     executor,
-			Metadata:     nullableMeta.String,
-			CommitHash:   nullableHash,
-		})
-	} else {
-		d.queries.StoreScheduledJob(context.Background(), model.StoreScheduledJobParams{
-			ID:           uuid,
-			CreationTime: creationTime.UTC(),
-			Executor:     executor,
-			CommitHash:   nullableHash,
-		})
-	}
+
+	d.queries.StoreScheduledJobWithMetadata(context.Background(), model.StoreScheduledJobWithMetadataParams{
+		ID:           uuid,
+		CreationTime: creationTime.UTC(),
+		Executor:     executor,
+		Metadata:     nullableMeta.String,
+		CommitHash:   nullableHash,
+	})
 }
 
 func (d DBPersister) StoreStartTime(uuid uuid.UUID, startTime time.Time) {
