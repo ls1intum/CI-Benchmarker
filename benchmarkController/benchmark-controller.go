@@ -55,7 +55,7 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 	}
 
 	var hadesHost *string
-	host := c.Query("hades_host")
+	host := c.Query("host")
 	if host != "" {
 		hadesHost = &host
 	}
