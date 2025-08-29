@@ -80,7 +80,7 @@ func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor s
 		ID:           uuid,
 		CreationTime: creationTime.UTC(),
 		Executor:     executor,
-		Metadata:     nullableMeta.String,
+		Metadata:     nullableMeta,
 		CommitHash:   nullableHash,
 	})
 }
