@@ -54,10 +54,16 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 		commitHash = &hash
 	}
 
+	var hadesHost *string
+	host := c.Query("host")
+	if host != "" {
+		hadesHost = &host
+	}
+
 	// Run the benchmark
 	slog.Debug("Running jobs", slog.Any("count", count))
 	b.JobCounter = count
-	if err := b.run(restPayload, commitHash); err != nil {
+	if err := b.run(restPayload, hadesHost, commitHash); err != nil {
 		c.JSON(400, gin.H{"message": "Benchmark failed", "error": err.Error()})
 	} else {
 		c.JSON(200, gin.H{"message": "Benchmark started"})
@@ -71,7 +77,7 @@ func (b Benchmark) HandleFunc(c *gin.Context) {
 // The function logs various stages of job execution, including the start of job
 // scheduling, any errors encountered during execution, and the successful storage
 // of job results.
-func (b Benchmark) run(payload payload.RESTPayload, commitHash *string) error {
+func (b Benchmark) run(payload payload.RESTPayload, metaData *string, commitHash *string) error {
 	slog.Info("Running jobs", slog.Any("number", b.JobCounter), slog.Any("executor", b.Executor))
 	var wg sync.WaitGroup
 	var runErr error
@@ -96,7 +102,7 @@ func (b Benchmark) run(payload payload.RESTPayload, commitHash *string) error {
 
 			// Store the job
 			slog.Debug("Storing job", slog.Any("uuid", uuid))
-			p.StoreJob(uuid, time.Now(), b.Executor.Name(), commitHash)
+			p.StoreJob(uuid, time.Now(), b.Executor.Name(), metaData, commitHash)
 
 			slog.Debug("Job stored successfully", slog.Any("uuid", uuid))
 		}(b.Persister, i)
