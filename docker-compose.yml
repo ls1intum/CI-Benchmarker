@@ -18,7 +18,7 @@ services:
 
   benchmarker:
     build: .
-    image: ghcr.io/mtze/ci-benchmarker/benchmarker:latest
+    image: ghcr.io/ls1intum/ci-benchmarker/benchmarker:latest
     container_name: benchmarker
     expose:
       - "8080"
