@@ -90,7 +90,7 @@ func backoff(attempt int) time.Duration {
 func isSQLiteBusyOrLocked(err error) bool {
 	var se sqlite3.Error
 	if errors.As(err, &se) {
-		return errors.Is(se.Code, sqlite3.ErrBusy) || errors.Is(se.Code, sqlite3.ErrLocked)
+		return se.Code == sqlite3.ErrBusy || se.Code == sqlite3.ErrLocked
 	}
 	return false
 }
