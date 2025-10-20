@@ -5,16 +5,16 @@ meta {
 }
 
 post {
-  url: http://{{hostname}}/v1/benchmark/jenkins?host=http://localhost:8080&user&api_token&job_path&use_parameters=true
+  url: http://{{hostname}}/v1/benchmark/jenkins?host=http://localhost:8080&user=admin&api_token=***&job_path=job/hades&use_parameters=true
   body: json
   auth: none
 }
 
 params:query {
   host: http://localhost:8080
-  user: 
-  api_token: 
-  job_path: 
+  user: admin
+  api_token: ***
+  job_path: job/hades
   use_parameters: true
   ~count: 1
   ~commit_hash: 123456
