@@ -23,7 +23,8 @@ const maxAttempts = 5
 // This interface is used to store the job and the result of the job
 // This implementation allows to abstract the concrete storage mechanism
 type Persister interface {
-	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string)
+	StoreJobWithMetadata(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string)
+	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, commitHash *string)
 	StoreStartTime(uuid uuid.UUID, startTime time.Time)
 	StoreResult(uuid uuid.UUID, time time.Time)
 }
@@ -103,7 +104,7 @@ func isDatabaseLockedMsg(err error) bool {
 	return strings.Contains(msg, "database is locked") || strings.Contains(msg, "database table is locked")
 }
 
-func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string) {
+func (d DBPersister) StoreJobWithMetadata(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string) {
 	var nullableHash sql.NullString
 	if commitHash != nil {
 		nullableHash = sql.NullString{String: *commitHash, Valid: true}
@@ -131,6 +132,33 @@ func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor s
 
 	if err := withRetry(func(ctx context.Context) error {
 		_, err := d.queries.StoreScheduledJobWithMetadata(ctx, params)
+		return err
+	}); err != nil {
+		slog.Error("StoreJob failed",
+			slog.Any("uuid", uuid),
+			slog.Any("executor", executor),
+			slog.Any("error", err),
+		)
+	}
+}
+
+func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, commitHash *string) {
+	var nullableHash sql.NullString
+	if commitHash != nil {
+		nullableHash = sql.NullString{String: *commitHash, Valid: true}
+	} else {
+		nullableHash = sql.NullString{Valid: false}
+	}
+
+	params := model.StoreScheduledJobParams{
+		ID:           uuid,
+		CreationTime: creationTime.UTC(),
+		Executor:     executor,
+		CommitHash:   nullableHash,
+	}
+
+	if err := withRetry(func(ctx context.Context) error {
+		_, err := d.queries.StoreScheduledJob(ctx, params)
 		return err
 	}); err != nil {
 		slog.Error("StoreJob failed",
