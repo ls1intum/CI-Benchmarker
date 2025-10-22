@@ -16,8 +16,8 @@ ENV CGO_ENABLED=1
 
 RUN go build -o benchmarker .
 
-# Start a new stage for the minimal runtime container
-FROM gcr.io/distroless/static-debian12
+# Start a new stage for the runtime container
+FROM alpine
 
 # Set the working directory inside the minimal runtime container
 WORKDIR /app
