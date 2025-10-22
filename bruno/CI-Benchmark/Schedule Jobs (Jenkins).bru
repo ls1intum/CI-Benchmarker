@@ -5,19 +5,19 @@ meta {
 }
 
 post {
-  url: http://{{hostname}}/v1/benchmark/jenkins?host=http://localhost:8080&user=admin&api_token=***&job_path=job/hades&use_parameters=true
+  url: https://{{hostname}}/v1/benchmark/jenkins?host=https://ma-yu2.aet.cit.tum.de/jenkins&user=admin&api_token=11e289b60356b07f45e1d9a34707fd4fd0&job_path=job/hades&use_parameters=true&count=1&commit_hash=123456
   body: json
   auth: none
 }
 
 params:query {
-  host: http://localhost:8080
+  host: https://ma-yu2.aet.cit.tum.de/jenkins
   user: admin
   api_token: ***
   job_path: job/hades
   use_parameters: true
-  ~count: 1
-  ~commit_hash: 123456
+  count: 1
+  commit_hash: 123456
 }
 
 body:json {
@@ -34,7 +34,7 @@ body:json {
         "name": "Report Starting Time",
         "image": "ghcr.io/ls1intum/hades-reporter/hades-reporter:latest",
         "metadata": {
-          "ENDPOINT": "https://hades-benchmarker.wei-tech.site/v1/start_time"
+          "ENDPOINT": "{{start_time_url}}"
         }
       },
       {
@@ -66,7 +66,7 @@ body:json {
         "name": "Result",
         "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
         "metadata": {
-          "API_ENDPOINT": "https://hades-benchmarker.wei-tech.site/v1/result",
+          "API_ENDPOINT": "{{end_time_url}}",
           "INGEST_DIR":"./shared/example",
           "HADES_TEST_PATH": "./example",
           "HADES_ASSIGNMENT_PATH": "./example/assignment"
@@ -81,4 +81,6 @@ vars:pre-request {
   password: 
   test_repo: https://github.com/Mtze/Artemis-Java-Test.git
   assignment_repo: https://github.com/Mtze/Artemis-Java-Solution.git
+  start_time_url: https://ma-yu.aet.cit.tum.de/v1/start_time
+  end_time_url: https://ma-yu.aet.cit.tum.de/v1/result
 }

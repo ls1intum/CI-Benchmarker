@@ -3,7 +3,7 @@ package executor
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -44,8 +44,8 @@ func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, erro
 		return uuid.UUID{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		slog.Debug("HadesExecutor returned non-200 status code")
-		return uuid.UUID{}, errors.New("HadesExecutor returned non-200 status code")
+		slog.Debug(fmt.Sprintf("HadesExecutor returned status code %d", resp.StatusCode))
+		return uuid.UUID{}, fmt.Errorf("HadesExecutor returned non-200 status code: %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	slog.Debug("HadesExecutor response", slog.Any("response", resp))
