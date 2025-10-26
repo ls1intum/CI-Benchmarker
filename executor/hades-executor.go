@@ -17,17 +17,6 @@ type HadesExecutor struct {
 	HadesURL string
 }
 
-func NewHadesExecutor(hadesURL string) *HadesExecutor {
-	slog.Info("Creating new HadesExecutor")
-	return &HadesExecutor{
-		HadesURL: hadesURL,
-	}
-}
-
-func (e *HadesExecutor) Name() string {
-	return "HadesExecutor"
-}
-
 func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, error) {
 	slog.Debug("Executing HadesExecutor")
 
@@ -71,4 +60,34 @@ func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, erro
 	slog.Info("HadesExecutor scheduled successfully", slog.Any("jobID", jobID))
 
 	return jobID, nil
+}
+
+type HadesDockerExecutor struct{ *HadesExecutor }
+
+func NewHadesDockerExecutor(hadesURL string) *HadesDockerExecutor {
+	slog.Info("Creating new HadesDockerExecutor")
+	return &HadesDockerExecutor{
+		HadesExecutor: &HadesExecutor{
+			HadesURL: hadesURL,
+		},
+	}
+}
+
+func (e *HadesDockerExecutor) Name() string {
+	return "HadesDockerExecutor"
+}
+
+type HadesKubernetesExecutor struct{ *HadesExecutor }
+
+func NewHadesKubernetesExecutor(hadesURL string) *HadesKubernetesExecutor {
+	slog.Info("Creating new HadesKubernetesExecutor")
+	return &HadesKubernetesExecutor{
+		HadesExecutor: &HadesExecutor{
+			HadesURL: hadesURL,
+		},
+	}
+}
+
+func (e *HadesKubernetesExecutor) Name() string {
+	return "HadesKubernetesExecutor"
 }

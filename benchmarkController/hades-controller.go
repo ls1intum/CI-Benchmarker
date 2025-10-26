@@ -8,13 +8,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewHadesBenchmark() gin.HandlerFunc {
+func NewHadesDockerBenchmark() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		slog.Debug("Creating new Hades benchmark")
+		slog.Debug("Creating new Hades (Docker) benchmark")
 
 		hadesHost := c.Query("host")
 		benchmark := Benchmark{
-			Executor:  executor.NewHadesExecutor(hadesHost),
+			Executor:  executor.NewHadesDockerExecutor(hadesHost),
+			Persister: persister.NewDBPersister(),
+		}
+
+		benchmark.HandleFunc(c)
+	}
+}
+
+func NewHadesKubernetesBenchmark() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		slog.Debug("Creating new Hades (Kubernetes) benchmark")
+
+		hadesHost := c.Query("host")
+		benchmark := Benchmark{
+			Executor:  executor.NewHadesKubernetesExecutor(hadesHost),
 			Persister: persister.NewDBPersister(),
 		}
 

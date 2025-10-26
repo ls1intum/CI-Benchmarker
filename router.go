@@ -47,7 +47,9 @@ func startRouter() *gin.Engine {
 	version.POST("/start_time", handleStartTime)
 
 	// Register the route for the benchmark executors
-	version.POST("/benchmark/hades", benchmarkController.NewHadesBenchmark())
+	version.POST("/benchmark/hades-docker", benchmarkController.NewHadesDockerBenchmark())
+
+	version.POST("/benchmark/hades-k8s", benchmarkController.NewHadesKubernetesBenchmark())
 
 	version.POST("/benchmark/jenkins", benchmarkController.NewJenkinsBenchmark())
 
