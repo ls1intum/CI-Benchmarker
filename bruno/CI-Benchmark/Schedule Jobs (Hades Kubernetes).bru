@@ -1,17 +1,17 @@
 meta {
-  name: Schedule Jobs (Hades)
+  name: Schedule Jobs (Hades Kubernetes)
   type: http
-  seq: 2
+  seq: 3
 }
 
 post {
-  url: https://{{hostname}}/v1/benchmark/hades?host=https://ma-yu2.aet.cit.tum.de/hades/build&count=1&commit_hash=123456
+  url: https://{{hostname}}/v1/benchmark/hades?host=https://hades.student.k8s.aet.cit.tum.de&count=1&commit_hash=123456
   body: json
   auth: none
 }
 
 params:query {
-  host: https://ma-yu2.aet.cit.tum.de/hades/build
+  host: https://hades.student.k8s.aet.cit.tum.de
   count: 1
   commit_hash: 123456
 }
