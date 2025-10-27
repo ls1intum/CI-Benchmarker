@@ -200,12 +200,14 @@ func (d DBPersister) StoreResult(uuid uuid.UUID, endTime time.Time) {
 	})
 }
 
-func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
 	params := model.GetQueueLatenciesInRangeByCommitAndExecutorParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -223,12 +225,14 @@ func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time, commitHash *s
 	return d.queries.GetQueueLatenciesInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetBuildTimesInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetBuildTimesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
 	params := model.GetBuildTimesInRangeByCommitAndExecutorParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -246,12 +250,14 @@ func (d DBPersister) GetBuildTimesInRange(from, to *time.Time, commitHash *strin
 	return d.queries.GetBuildTimesInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
 	params := model.GetQueueLatencySummaryInRangeByCommitAndExecutorParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -269,12 +275,14 @@ func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time, commitHa
 	return d.queries.GetQueueLatencySummaryInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
 	params := model.GetBuildTimeSummaryInRangeByCommitAndExecutorParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -292,12 +300,14 @@ func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time, commitHash 
 	return d.queries.GetBuildTimeSummaryInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
 	params := model.GetTotalLatenciesInRangeByCommitAndExecutorParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -315,12 +325,14 @@ func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time, commitHash *s
 	return d.queries.GetTotalLatenciesInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetTotalLatenciesSummaryInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetTotalLatenciesSummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
 	params := model.GetTotalLatenciesSummaryInRangeByCommitAndExecutorParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {

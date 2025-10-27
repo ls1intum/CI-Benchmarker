@@ -5,12 +5,13 @@ meta {
 }
 
 get {
-  url: http://{{hostname}}/v1/benchmark/build_time/metrics
+  url: http://{{hostname}}/v1/benchmark/build_time/metrics?executor=HadesDockerExecutor
   body: none
   auth: inherit
 }
 
 params:query {
+  executor: HadesDockerExecutor
   ~commit_hash: 123456
   ~from: 2025-05-14T22:00:00
   ~to: 2025-05-14T22:00:00
