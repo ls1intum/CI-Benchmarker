@@ -1,4 +1,6 @@
 benchmark.db
+benchmark.db-shm
+benchmark.db-wal
 **.bkp
 .idea
 .vscode

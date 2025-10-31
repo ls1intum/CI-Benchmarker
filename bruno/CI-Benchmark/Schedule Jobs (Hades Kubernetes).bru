@@ -1,19 +1,19 @@
 meta {
-  name: Schedule Jobs (Hades)
+  name: Schedule Jobs (Hades Kubernetes)
   type: http
-  seq: 2
+  seq: 3
 }
 
 post {
-  url: https://{{hostname}}/v1/benchmark/hades?count=50&commit_hash=123456
+  url: https://{{hostname}}/v1/benchmark/hades-k8s?host=https://hades.student.k8s.aet.cit.tum.de&count=1&commit_hash=123456
   body: json
   auth: none
 }
 
 params:query {
+  host: https://hades.student.k8s.aet.cit.tum.de
   count: 1
   commit_hash: 123456
-  host: http://localhost:8081/build
 }
 
 body:json {
@@ -30,7 +30,7 @@ body:json {
         "name": "Report Starting Time",
         "image": "ghcr.io/ls1intum/hades-reporter/hades-reporter:latest",
         "metadata": {
-          "ENDPOINT": "https://hades-benchmarker.wei-tech.site/v1/start_time"
+          "ENDPOINT": "{{start_time_url}}"
         }
       },
       {
@@ -62,7 +62,7 @@ body:json {
         "name": "Result",
         "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
         "metadata": {
-          "API_ENDPOINT": "https://hades-benchmarker.wei-tech.site/v1/result",
+          "API_ENDPOINT": "{{end_time_url}}",
           "INGEST_DIR":"./shared/example",
           "HADES_TEST_PATH": "./example",
           "HADES_ASSIGNMENT_PATH": "./example/assignment"
@@ -77,4 +77,6 @@ vars:pre-request {
   password: 
   test_repo: https://github.com/Mtze/Artemis-Java-Test.git
   assignment_repo: https://github.com/Mtze/Artemis-Java-Solution.git
+  start_time_url: https://ma-yu.aet.cit.tum.de/v1/start_time
+  end_time_url: https://ma-yu.aet.cit.tum.de/v1/result
 }

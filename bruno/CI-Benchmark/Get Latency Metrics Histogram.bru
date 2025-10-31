@@ -1,17 +1,18 @@
 meta {
   name: Get Latency Metrics Histogram
   type: http
-  seq: 7
+  seq: 8
 }
 
 get {
-  url: http://{{hostname}}/v1/benchmark/queue_latency/histogram?commit_hash=123456
+  url: http://{{hostname}}/v1/benchmark/queue_latency/histogram?executor=HadesDockerExecutor
   body: none
   auth: inherit
 }
 
 params:query {
-  commit_hash: 123456
+  executor: HadesDockerExecutor
+  ~commit_hash: 123456
   ~from: 2025-05-01T22:00:00
   ~to: 2025-05-14T22:00:00
 }
