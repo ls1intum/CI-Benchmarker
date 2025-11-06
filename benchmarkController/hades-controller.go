@@ -14,7 +14,7 @@ func NewHadesDockerBenchmark() gin.HandlerFunc {
 
 		hadesHost := c.Query("host")
 		benchmark := Benchmark{
-			Executor:  executor.NewHadesDockerExecutor(hadesHost),
+			Executor:  executor.NewHadesExecutor(hadesHost, executor.Docker),
 			Persister: persister.NewDBPersister(),
 		}
 
@@ -28,7 +28,7 @@ func NewHadesKubernetesBenchmark() gin.HandlerFunc {
 
 		hadesHost := c.Query("host")
 		benchmark := Benchmark{
-			Executor:  executor.NewHadesKubernetesExecutor(hadesHost),
+			Executor:  executor.NewHadesExecutor(hadesHost, executor.Kubernetes),
 			Persister: persister.NewDBPersister(),
 		}
 

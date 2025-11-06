@@ -11,10 +11,21 @@ import (
 	"github.com/ls1intum/hades/shared/payload"
 )
 
+// Compile-time check to ensure HadesDockerExecutor and HadesKubernetesExecutor implement the Executor interface
+var _ Executor = (*HadesExecutor)(nil)
+
+// ExecutorType defines the type of executor
+type ExecutorType string
+
+const (
+	Docker     ExecutorType = "Docker"
+	Kubernetes ExecutorType = "Kubernetes"
+)
+
 // HadesExecutor is the executor for Hades
 type HadesExecutor struct {
-	Executor
-	HadesURL string
+	executorType ExecutorType
+	HadesURL     string
 }
 
 func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, error) {
@@ -62,32 +73,18 @@ func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, erro
 	return jobID, nil
 }
 
-type HadesDockerExecutor struct{ *HadesExecutor }
-
-func NewHadesDockerExecutor(hadesURL string) *HadesDockerExecutor {
-	slog.Info("Creating new HadesDockerExecutor")
-	return &HadesDockerExecutor{
-		HadesExecutor: &HadesExecutor{
-			HadesURL: hadesURL,
-		},
+func NewHadesExecutor(hadesURL string, executorType ExecutorType) *HadesExecutor {
+	slog.Info("Creating new HadesExecutor")
+	if executorType != Docker && executorType != Kubernetes {
+		slog.Warn("Invalid executor type, defaulting to Docker", slog.String("executorType", string(executorType)))
+		executorType = Docker
+	}
+	return &HadesExecutor{
+		executorType: executorType,
+		HadesURL:     hadesURL,
 	}
 }
 
-func (e *HadesDockerExecutor) Name() string {
-	return "HadesDockerExecutor"
-}
-
-type HadesKubernetesExecutor struct{ *HadesExecutor }
-
-func NewHadesKubernetesExecutor(hadesURL string) *HadesKubernetesExecutor {
-	slog.Info("Creating new HadesKubernetesExecutor")
-	return &HadesKubernetesExecutor{
-		HadesExecutor: &HadesExecutor{
-			HadesURL: hadesURL,
-		},
-	}
-}
-
-func (e *HadesKubernetesExecutor) Name() string {
-	return "HadesKubernetesExecutor"
+func (e *HadesExecutor) Name() string {
+	return fmt.Sprintf("Hades%sExecutor", string(e.executorType))
 }
