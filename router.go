@@ -47,23 +47,20 @@ func startRouter() *gin.Engine {
 	version.POST("/start_time", handleStartTime)
 
 	// Register the route for the benchmark executors
-	version.POST("/benchmark/hades-docker", benchmarkController.NewHadesDockerBenchmark())
-
-	version.POST("/benchmark/hades-k8s", benchmarkController.NewHadesKubernetesBenchmark())
-
-	version.POST("/benchmark/jenkins", benchmarkController.NewJenkinsBenchmark())
-
-	version.GET("benchmark/latency/histogram", MetricsController.GetTotalLatencyHistogram)
-
-	version.GET("benchmark/latency/metrics", MetricsController.GetTotalLatencyMetrics)
-
-	version.GET("benchmark/queue_latency/histogram", MetricsController.GetQueueLatencyHistogram)
-
-	version.GET("benchmark/queue_latency/metrics", MetricsController.GetQueueLatencyMetrics)
-
-	version.GET("benchmark/build_time/histogram", MetricsController.GetBuildTimeHistogram)
-
-	version.GET("benchmark/build_time/metrics", MetricsController.GetBuildTimeMetrics)
+	benchmarkGroup := version.Group("/benchmark")
+	{
+		// Create benchmarks
+		benchmarkGroup.POST("/hades-docker", benchmarkController.NewHadesDockerBenchmark())
+		benchmarkGroup.POST("/hades-k8s", benchmarkController.NewHadesKubernetesBenchmark())
+		benchmarkGroup.POST("/jenkins", benchmarkController.NewJenkinsBenchmark())
+		// Get benchmark results
+		benchmarkGroup.GET("/latency/histogram", MetricsController.GetTotalLatencyHistogram)
+		benchmarkGroup.GET("/latency/metrics", MetricsController.GetTotalLatencyMetrics)
+		benchmarkGroup.GET("/queue_latency/histogram", MetricsController.GetQueueLatencyHistogram)
+		benchmarkGroup.GET("/queue_latency/metrics", MetricsController.GetQueueLatencyMetrics)
+		benchmarkGroup.GET("/build_time/histogram", MetricsController.GetBuildTimeHistogram)
+		benchmarkGroup.GET("/build_time/metrics", MetricsController.GetBuildTimeMetrics)
+	}
 
 	return r
 }
