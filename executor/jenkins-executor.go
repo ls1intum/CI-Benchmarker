@@ -12,8 +12,10 @@ import (
 	"github.com/ls1intum/hades/shared/payload"
 )
 
+// Compile-time check to ensure JenkinsExecutor implements the Executor interface
+var _ Executor = (*JenkinsExecutor)(nil)
+
 type JenkinsExecutor struct {
-	Executor
 	JenkinsURL    string
 	User          string
 	APIToken      string
