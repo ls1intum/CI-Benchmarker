@@ -140,11 +140,20 @@ func (e *JenkinsExecutor) getCrumb() (field string, value string, err error) {
 }
 
 func (e *JenkinsExecutor) payloadToParams(p payload.RESTPayload) (url.Values, error) {
-	values := url.Values{}
+	if p.Metadata == nil {
+		p.Metadata = make(map[string]string)
+	}
+
+	jenkinsID := uuid.New().String()
+	p.Metadata["jenkinsId"] = jenkinsID
+
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, err
 	}
+
+	values := url.Values{}
 	values.Set("HADES_PAYLOAD_JSON", string(b))
+
 	return values, nil
 }
