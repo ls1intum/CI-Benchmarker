@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/ls1intum/hades/shared/payload"
@@ -21,11 +23,25 @@ type JenkinsExecutor struct {
 	APIToken      string
 	JobPath       string
 	UseParameters bool
+
+	crumbField  string
+	crumbValue  string
+	crumbExpiry time.Time
+	crumbMu     sync.Mutex
 }
 
 type crumbResp struct {
 	Crumb             string `json:"crumb"`
 	CrumbRequestField string `json:"crumbRequestField"`
+}
+
+var jenkinsClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxConnsPerHost:     100,
+		MaxIdleConnsPerHost: 100,
+	},
 }
 
 func NewJenkinsExecutor(jenkinsURL string, user string, APIToken string, path string, useParameters bool) *JenkinsExecutor {
@@ -106,7 +122,7 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 	}
 
 	// Send request
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := jenkinsClient.Do(req)
 	if err != nil {
 		slog.Debug("Error while sending POST request to Jenkins")
 		return jobUUID, err
@@ -123,21 +139,54 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 }
 
 func (e *JenkinsExecutor) getCrumb() (field string, value string, err error) {
+
+	now := time.Now()
+
+	// -----------------------------
+	// First quick check (no lock)
+	// -----------------------------
+	if e.crumbField != "" && now.Before(e.crumbExpiry) {
+		return e.crumbField, e.crumbValue, nil
+	}
+
+	// -----------------------------
+	// Acquire lock for refresh
+	// -----------------------------
+	e.crumbMu.Lock()
+	defer e.crumbMu.Unlock()
+
+	// -----------------------------
+	// Double-check after locking
+	// -----------------------------
+	if e.crumbField != "" && now.Before(e.crumbExpiry) {
+		return e.crumbField, e.crumbValue, nil
+	}
+
+	// -----------------------------
+	// Actually fetch new crumb
+	// -----------------------------
+	slog.Info("Fetching new Jenkins crumb...")
+
 	req, err := http.NewRequest(http.MethodGet, e.JenkinsURL+"/crumbIssuer/api/json", nil)
 	if err != nil {
 		return "", "", err
 	}
 	req.SetBasicAuth(e.User, e.APIToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := jenkinsClient.Do(req)
 	if err != nil {
 		return "", "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
+		// Jenkins has crumb disabled
+		e.crumbField = ""
+		e.crumbValue = ""
+		e.crumbExpiry = now.Add(30 * time.Minute) // arbitrary good TTL
 		return "", "", nil
 	}
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", "", errors.New("failed to get Jenkins crumb")
 	}
@@ -146,7 +195,17 @@ func (e *JenkinsExecutor) getCrumb() (field string, value string, err error) {
 	if err := json.NewDecoder(resp.Body).Decode(&c); err != nil {
 		return "", "", err
 	}
-	return c.CrumbRequestField, c.Crumb, nil
+
+	// -----------------------------
+	// Save to cache with TTL
+	// -----------------------------
+	e.crumbField = c.CrumbRequestField
+	e.crumbValue = c.Crumb
+	e.crumbExpiry = now.Add(45 * time.Minute) // safer than 1h, Jenkins default
+
+	slog.Info("Fetched new crumb", "expires_at", e.crumbExpiry.String())
+
+	return e.crumbField, e.crumbValue, nil
 }
 
 func (e *JenkinsExecutor) payloadToParams(p payload.RESTPayload) (url.Values, error) {
