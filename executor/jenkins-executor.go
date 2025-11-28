@@ -130,9 +130,9 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 	defer resp.Body.Close()
 
 	// Validate Jenkins response
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
-		slog.Debug("JenkinsExecutor returned non-201/202 status code", slog.Int("status", resp.StatusCode))
-		return jobUUID, errors.New("JenkinsExecutor returned non-201/202 status code")
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
+		slog.Debug("JenkinsExecutor returned non-200/201/202 status code", slog.Int("status", resp.StatusCode))
+		return jobUUID, errors.New("JenkinsExecutor returned non-200/201/202 status code")
 	}
 
 	return jobUUID, nil
