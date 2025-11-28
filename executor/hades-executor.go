@@ -3,7 +3,7 @@ package executor
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -11,21 +11,21 @@ import (
 	"github.com/ls1intum/hades/shared/payload"
 )
 
+// Compile-time check to ensure HadesDockerExecutor and HadesKubernetesExecutor implement the Executor interface
+var _ Executor = (*HadesExecutor)(nil)
+
+// ExecutorType defines the type of executor
+type ExecutorType string
+
+const (
+	Docker     ExecutorType = "Docker"
+	Kubernetes ExecutorType = "Kubernetes"
+)
+
 // HadesExecutor is the executor for Hades
 type HadesExecutor struct {
-	Executor
-	HadesURL string
-}
-
-func NewHadesExecutor(hadesURL string) *HadesExecutor {
-	slog.Info("Creating new HadesExecutor")
-	return &HadesExecutor{
-		HadesURL: hadesURL,
-	}
-}
-
-func (e *HadesExecutor) Name() string {
-	return "HadesExecutor"
+	executorType ExecutorType
+	HadesURL     string
 }
 
 func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, error) {
@@ -44,8 +44,8 @@ func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, erro
 		return uuid.UUID{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		slog.Debug("HadesExecutor returned non-200 status code")
-		return uuid.UUID{}, errors.New("HadesExecutor returned non-200 status code")
+		slog.Debug(fmt.Sprintf("HadesExecutor returned status code %d", resp.StatusCode))
+		return uuid.UUID{}, fmt.Errorf("HadesExecutor returned non-200 status code: %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	slog.Debug("HadesExecutor response", slog.Any("response", resp))
@@ -71,4 +71,20 @@ func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, erro
 	slog.Info("HadesExecutor scheduled successfully", slog.Any("jobID", jobID))
 
 	return jobID, nil
+}
+
+func NewHadesExecutor(hadesURL string, executorType ExecutorType) *HadesExecutor {
+	slog.Info("Creating new HadesExecutor")
+	if executorType != Docker && executorType != Kubernetes {
+		slog.Warn("Invalid executor type, defaulting to Docker", slog.String("executorType", string(executorType)))
+		executorType = Docker
+	}
+	return &HadesExecutor{
+		executorType: executorType,
+		HadesURL:     hadesURL,
+	}
+}
+
+func (e *HadesExecutor) Name() string {
+	return fmt.Sprintf("Hades%sExecutor", string(e.executorType))
 }

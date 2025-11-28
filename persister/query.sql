@@ -36,7 +36,7 @@ ON CONFLICT (id) DO UPDATE
   end_time = EXCLUDED.end_time
 RETURNING *;
 
--- name: GetQueueLatenciesInRangeByCommit :many
+-- name: GetQueueLatenciesInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS queue_latency
 FROM
@@ -47,10 +47,11 @@ WHERE
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.start_time) <= datetime(:to) OR :to IS NULL)
   AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
+  AND (s.executor = :executor OR :executor IS NULL)
 ORDER BY
     queue_latency DESC;
 
--- name: GetBuildTimesInRangeByCommit :many
+-- name: GetBuildTimesInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
@@ -62,10 +63,11 @@ WHERE
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.end_time) <= datetime(:to) OR :to IS NULL)
   AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
+  AND (s.executor = :executor OR :executor IS NULL)
 ORDER BY
     build_time DESC;
 
--- name: GetTotalLatenciesInRangeByCommit :many
+-- name: GetTotalLatenciesInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
 FROM
@@ -77,10 +79,11 @@ WHERE
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.end_time) <= datetime(:to) OR :to IS NULL)
   AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
+  AND (s.executor = :executor OR :executor IS NULL)
 ORDER BY
     total_latency DESC;
 
--- name: GetQueueLatencySummaryInRangeByCommit :many
+-- name: GetQueueLatencySummaryInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS latency
 FROM
@@ -91,10 +94,11 @@ WHERE
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.start_time) <= datetime(:to) OR :to IS NULL)
   AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
+  AND (s.executor = :executor OR :executor IS NULL)
 ORDER BY
     latency ASC;
 
--- name: GetBuildTimeSummaryInRangeByCommit :many
+-- name: GetBuildTimeSummaryInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
@@ -106,10 +110,11 @@ WHERE
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.end_time) <= datetime(:to) OR :to IS NULL)
   AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
+  AND (s.executor = :executor OR :executor IS NULL)
 ORDER BY
     build_time ASC;
 
--- name: GetTotalLatenciesSummaryInRangeByCommit :many
+-- name: GetTotalLatenciesSummaryInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
 FROM
@@ -121,5 +126,6 @@ WHERE
   AND (datetime(r.start_time) >= datetime(:from) OR :from IS NULL)
   AND (datetime(r.end_time) <= datetime(:to) OR :to IS NULL)
   AND (s.commit_hash = :commit_hash OR :commit_hash IS NULL)
+  AND (s.executor = :executor OR :executor IS NULL)
 ORDER BY
     total_latency ASC;

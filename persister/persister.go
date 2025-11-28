@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mattn/go-sqlite3"
@@ -23,7 +24,8 @@ const maxAttempts = 5
 // This interface is used to store the job and the result of the job
 // This implementation allows to abstract the concrete storage mechanism
 type Persister interface {
-	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string)
+	StoreJobWithMetadata(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string)
+	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, commitHash *string)
 	StoreStartTime(uuid uuid.UUID, startTime time.Time)
 	StoreResult(uuid uuid.UUID, time time.Time)
 }
@@ -37,6 +39,7 @@ type DBPersister struct {
 
 //go:embed schema.sql
 var ddl string
+var ddlOnce sync.Once
 
 func NewDBPersister() DBPersister {
 	dsn := "file:" + file + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
@@ -54,9 +57,18 @@ func NewDBPersister() DBPersister {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := db.ExecContext(ctx, ddl); err != nil {
-		slog.Error("Error while creating table", slog.Any("error", err))
+	if err := db.PingContext(ctx); err != nil {
+		slog.Error("DB ping failed", slog.Any("error", err))
+		panic(err)
 	}
+
+	ddlOnce.Do(func() {
+		if _, err := db.ExecContext(ctx, ddl); err != nil {
+			slog.Error("Error while creating table/index", slog.Any("error", err))
+		} else {
+			slog.Info("DB schema ensured")
+		}
+	})
 
 	queries := model.New(db)
 	return DBPersister{db: db, queries: queries}
@@ -103,7 +115,7 @@ func isDatabaseLockedMsg(err error) bool {
 	return strings.Contains(msg, "database is locked") || strings.Contains(msg, "database table is locked")
 }
 
-func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string) {
+func (d DBPersister) StoreJobWithMetadata(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string) {
 	var nullableHash sql.NullString
 	if commitHash != nil {
 		nullableHash = sql.NullString{String: *commitHash, Valid: true}
@@ -141,6 +153,33 @@ func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor s
 	}
 }
 
+func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, commitHash *string) {
+	var nullableHash sql.NullString
+	if commitHash != nil {
+		nullableHash = sql.NullString{String: *commitHash, Valid: true}
+	} else {
+		nullableHash = sql.NullString{Valid: false}
+	}
+
+	params := model.StoreScheduledJobParams{
+		ID:           uuid,
+		CreationTime: creationTime.UTC(),
+		Executor:     executor,
+		CommitHash:   nullableHash,
+	}
+
+	if err := withRetry(func(ctx context.Context) error {
+		_, err := d.queries.StoreScheduledJob(ctx, params)
+		return err
+	}); err != nil {
+		slog.Error("StoreJob failed",
+			slog.Any("uuid", uuid),
+			slog.Any("executor", executor),
+			slog.Any("error", err),
+		)
+	}
+}
+
 func (d DBPersister) StoreStartTime(uuid uuid.UUID, startTime time.Time) {
 	d.queries.UpsertJobStartTime(context.Background(), model.UpsertJobStartTimeParams{
 		ID: uuid,
@@ -161,12 +200,14 @@ func (d DBPersister) StoreResult(uuid uuid.UUID, endTime time.Time) {
 	})
 }
 
-func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
-	params := model.GetQueueLatenciesInRangeByCommitParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+	params := model.GetQueueLatenciesInRangeByCommitAndExecutorParams{
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -181,15 +222,17 @@ func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time, commitHash *s
 		params.CommitHash = sql.NullString{Valid: false}
 	}
 
-	return d.queries.GetQueueLatenciesInRangeByCommit(ctx, params)
+	return d.queries.GetQueueLatenciesInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetBuildTimesInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetBuildTimesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
-	params := model.GetBuildTimesInRangeByCommitParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+	params := model.GetBuildTimesInRangeByCommitAndExecutorParams{
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -204,15 +247,17 @@ func (d DBPersister) GetBuildTimesInRange(from, to *time.Time, commitHash *strin
 		params.CommitHash = sql.NullString{Valid: false}
 	}
 
-	return d.queries.GetBuildTimesInRangeByCommit(ctx, params)
+	return d.queries.GetBuildTimesInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
-	params := model.GetQueueLatencySummaryInRangeByCommitParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+	params := model.GetQueueLatencySummaryInRangeByCommitAndExecutorParams{
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -227,15 +272,17 @@ func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time, commitHa
 		params.CommitHash = sql.NullString{Valid: false}
 	}
 
-	return d.queries.GetQueueLatencySummaryInRangeByCommit(ctx, params)
+	return d.queries.GetQueueLatencySummaryInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
-	params := model.GetBuildTimeSummaryInRangeByCommitParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+	params := model.GetBuildTimeSummaryInRangeByCommitAndExecutorParams{
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -250,15 +297,17 @@ func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time, commitHash 
 		params.CommitHash = sql.NullString{Valid: false}
 	}
 
-	return d.queries.GetBuildTimeSummaryInRangeByCommit(ctx, params)
+	return d.queries.GetBuildTimeSummaryInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
-	params := model.GetTotalLatenciesInRangeByCommitParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+	params := model.GetTotalLatenciesInRangeByCommitAndExecutorParams{
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -273,15 +322,17 @@ func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time, commitHash *s
 		params.CommitHash = sql.NullString{Valid: false}
 	}
 
-	return d.queries.GetTotalLatenciesInRangeByCommit(ctx, params)
+	return d.queries.GetTotalLatenciesInRangeByCommitAndExecutor(ctx, params)
 }
 
-func (d DBPersister) GetTotalLatenciesSummaryInRange(from, to *time.Time, commitHash *string) ([]int64, error) {
+func (d DBPersister) GetTotalLatenciesSummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
 	ctx := context.Background()
 
-	params := model.GetTotalLatenciesSummaryInRangeByCommitParams{
-		From: sql.NullTime{Valid: false},
-		To:   sql.NullTime{Valid: false},
+	params := model.GetTotalLatenciesSummaryInRangeByCommitAndExecutorParams{
+		From:       sql.NullTime{Valid: false},
+		To:         sql.NullTime{Valid: false},
+		CommitHash: sql.NullString{Valid: false},
+		Executor:   executor,
 	}
 
 	if from != nil {
@@ -296,5 +347,5 @@ func (d DBPersister) GetTotalLatenciesSummaryInRange(from, to *time.Time, commit
 		params.CommitHash = sql.NullString{Valid: false}
 	}
 
-	return d.queries.GetTotalLatenciesSummaryInRangeByCommit(ctx, params)
+	return d.queries.GetTotalLatenciesSummaryInRangeByCommitAndExecutor(ctx, params)
 }

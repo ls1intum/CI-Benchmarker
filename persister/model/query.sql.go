@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const getBuildTimeSummaryInRangeByCommit = `-- name: GetBuildTimeSummaryInRangeByCommit :many
+const getBuildTimeSummaryInRangeByCommitAndExecutor = `-- name: GetBuildTimeSummaryInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
@@ -25,18 +25,25 @@ WHERE
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
   AND (s.commit_hash = ?3 OR ?3 IS NULL)
+  AND (s.executor = ?4 OR ?4 IS NULL)
 ORDER BY
     build_time ASC
 `
 
-type GetBuildTimeSummaryInRangeByCommitParams struct {
+type GetBuildTimeSummaryInRangeByCommitAndExecutorParams struct {
 	From       interface{}    `json:"from"`
 	To         interface{}    `json:"to"`
 	CommitHash sql.NullString `json:"commit_hash"`
+	Executor   string         `json:"executor"`
 }
 
-func (q *Queries) GetBuildTimeSummaryInRangeByCommit(ctx context.Context, arg GetBuildTimeSummaryInRangeByCommitParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getBuildTimeSummaryInRangeByCommit, arg.From, arg.To, arg.CommitHash)
+func (q *Queries) GetBuildTimeSummaryInRangeByCommitAndExecutor(ctx context.Context, arg GetBuildTimeSummaryInRangeByCommitAndExecutorParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getBuildTimeSummaryInRangeByCommitAndExecutor,
+		arg.From,
+		arg.To,
+		arg.CommitHash,
+		arg.Executor,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +65,7 @@ func (q *Queries) GetBuildTimeSummaryInRangeByCommit(ctx context.Context, arg Ge
 	return items, nil
 }
 
-const getBuildTimesInRangeByCommit = `-- name: GetBuildTimesInRangeByCommit :many
+const getBuildTimesInRangeByCommitAndExecutor = `-- name: GetBuildTimesInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', r.start_time)) AS INTEGER) AS build_time
 FROM
@@ -70,18 +77,25 @@ WHERE
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
   AND (s.commit_hash = ?3 OR ?3 IS NULL)
+  AND (s.executor = ?4 OR ?4 IS NULL)
 ORDER BY
     build_time DESC
 `
 
-type GetBuildTimesInRangeByCommitParams struct {
+type GetBuildTimesInRangeByCommitAndExecutorParams struct {
 	From       interface{}    `json:"from"`
 	To         interface{}    `json:"to"`
 	CommitHash sql.NullString `json:"commit_hash"`
+	Executor   string         `json:"executor"`
 }
 
-func (q *Queries) GetBuildTimesInRangeByCommit(ctx context.Context, arg GetBuildTimesInRangeByCommitParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getBuildTimesInRangeByCommit, arg.From, arg.To, arg.CommitHash)
+func (q *Queries) GetBuildTimesInRangeByCommitAndExecutor(ctx context.Context, arg GetBuildTimesInRangeByCommitAndExecutorParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getBuildTimesInRangeByCommitAndExecutor,
+		arg.From,
+		arg.To,
+		arg.CommitHash,
+		arg.Executor,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +117,7 @@ func (q *Queries) GetBuildTimesInRangeByCommit(ctx context.Context, arg GetBuild
 	return items, nil
 }
 
-const getQueueLatenciesInRangeByCommit = `-- name: GetQueueLatenciesInRangeByCommit :many
+const getQueueLatenciesInRangeByCommitAndExecutor = `-- name: GetQueueLatenciesInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS queue_latency
 FROM
@@ -114,18 +128,25 @@ WHERE
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.start_time) <= datetime(?2) OR ?2 IS NULL)
   AND (s.commit_hash = ?3 OR ?3 IS NULL)
+  AND (s.executor = ?4 OR ?4 IS NULL)
 ORDER BY
     queue_latency DESC
 `
 
-type GetQueueLatenciesInRangeByCommitParams struct {
+type GetQueueLatenciesInRangeByCommitAndExecutorParams struct {
 	From       interface{}    `json:"from"`
 	To         interface{}    `json:"to"`
 	CommitHash sql.NullString `json:"commit_hash"`
+	Executor   string         `json:"executor"`
 }
 
-func (q *Queries) GetQueueLatenciesInRangeByCommit(ctx context.Context, arg GetQueueLatenciesInRangeByCommitParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getQueueLatenciesInRangeByCommit, arg.From, arg.To, arg.CommitHash)
+func (q *Queries) GetQueueLatenciesInRangeByCommitAndExecutor(ctx context.Context, arg GetQueueLatenciesInRangeByCommitAndExecutorParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getQueueLatenciesInRangeByCommitAndExecutor,
+		arg.From,
+		arg.To,
+		arg.CommitHash,
+		arg.Executor,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +168,7 @@ func (q *Queries) GetQueueLatenciesInRangeByCommit(ctx context.Context, arg GetQ
 	return items, nil
 }
 
-const getQueueLatencySummaryInRangeByCommit = `-- name: GetQueueLatencySummaryInRangeByCommit :many
+const getQueueLatencySummaryInRangeByCommitAndExecutor = `-- name: GetQueueLatencySummaryInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.start_time) - strftime('%s', s.creation_time)) AS INTEGER) AS latency
 FROM
@@ -158,18 +179,25 @@ WHERE
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.start_time) <= datetime(?2) OR ?2 IS NULL)
   AND (s.commit_hash = ?3 OR ?3 IS NULL)
+  AND (s.executor = ?4 OR ?4 IS NULL)
 ORDER BY
     latency ASC
 `
 
-type GetQueueLatencySummaryInRangeByCommitParams struct {
+type GetQueueLatencySummaryInRangeByCommitAndExecutorParams struct {
 	From       interface{}    `json:"from"`
 	To         interface{}    `json:"to"`
 	CommitHash sql.NullString `json:"commit_hash"`
+	Executor   string         `json:"executor"`
 }
 
-func (q *Queries) GetQueueLatencySummaryInRangeByCommit(ctx context.Context, arg GetQueueLatencySummaryInRangeByCommitParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getQueueLatencySummaryInRangeByCommit, arg.From, arg.To, arg.CommitHash)
+func (q *Queries) GetQueueLatencySummaryInRangeByCommitAndExecutor(ctx context.Context, arg GetQueueLatencySummaryInRangeByCommitAndExecutorParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getQueueLatencySummaryInRangeByCommitAndExecutor,
+		arg.From,
+		arg.To,
+		arg.CommitHash,
+		arg.Executor,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +219,7 @@ func (q *Queries) GetQueueLatencySummaryInRangeByCommit(ctx context.Context, arg
 	return items, nil
 }
 
-const getTotalLatenciesInRangeByCommit = `-- name: GetTotalLatenciesInRangeByCommit :many
+const getTotalLatenciesInRangeByCommitAndExecutor = `-- name: GetTotalLatenciesInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
 FROM
@@ -203,18 +231,25 @@ WHERE
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
   AND (s.commit_hash = ?3 OR ?3 IS NULL)
+  AND (s.executor = ?4 OR ?4 IS NULL)
 ORDER BY
     total_latency DESC
 `
 
-type GetTotalLatenciesInRangeByCommitParams struct {
+type GetTotalLatenciesInRangeByCommitAndExecutorParams struct {
 	From       interface{}    `json:"from"`
 	To         interface{}    `json:"to"`
 	CommitHash sql.NullString `json:"commit_hash"`
+	Executor   string         `json:"executor"`
 }
 
-func (q *Queries) GetTotalLatenciesInRangeByCommit(ctx context.Context, arg GetTotalLatenciesInRangeByCommitParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getTotalLatenciesInRangeByCommit, arg.From, arg.To, arg.CommitHash)
+func (q *Queries) GetTotalLatenciesInRangeByCommitAndExecutor(ctx context.Context, arg GetTotalLatenciesInRangeByCommitAndExecutorParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getTotalLatenciesInRangeByCommitAndExecutor,
+		arg.From,
+		arg.To,
+		arg.CommitHash,
+		arg.Executor,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +271,7 @@ func (q *Queries) GetTotalLatenciesInRangeByCommit(ctx context.Context, arg GetT
 	return items, nil
 }
 
-const getTotalLatenciesSummaryInRangeByCommit = `-- name: GetTotalLatenciesSummaryInRangeByCommit :many
+const getTotalLatenciesSummaryInRangeByCommitAndExecutor = `-- name: GetTotalLatenciesSummaryInRangeByCommitAndExecutor :many
 SELECT
     CAST((strftime('%s', r.end_time) - strftime('%s', s.creation_time)) AS INTEGER) AS total_latency
 FROM
@@ -248,18 +283,25 @@ WHERE
   AND (datetime(r.start_time) >= datetime(?1) OR ?1 IS NULL)
   AND (datetime(r.end_time) <= datetime(?2) OR ?2 IS NULL)
   AND (s.commit_hash = ?3 OR ?3 IS NULL)
+  AND (s.executor = ?4 OR ?4 IS NULL)
 ORDER BY
     total_latency ASC
 `
 
-type GetTotalLatenciesSummaryInRangeByCommitParams struct {
+type GetTotalLatenciesSummaryInRangeByCommitAndExecutorParams struct {
 	From       interface{}    `json:"from"`
 	To         interface{}    `json:"to"`
 	CommitHash sql.NullString `json:"commit_hash"`
+	Executor   string         `json:"executor"`
 }
 
-func (q *Queries) GetTotalLatenciesSummaryInRangeByCommit(ctx context.Context, arg GetTotalLatenciesSummaryInRangeByCommitParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getTotalLatenciesSummaryInRangeByCommit, arg.From, arg.To, arg.CommitHash)
+func (q *Queries) GetTotalLatenciesSummaryInRangeByCommitAndExecutor(ctx context.Context, arg GetTotalLatenciesSummaryInRangeByCommitAndExecutorParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getTotalLatenciesSummaryInRangeByCommitAndExecutor,
+		arg.From,
+		arg.To,
+		arg.CommitHash,
+		arg.Executor,
+	)
 	if err != nil {
 		return nil, err
 	}

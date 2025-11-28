@@ -1,21 +1,17 @@
 meta {
-  name: Schedule Jobs (Jenkins)
+  name: Schedule Jobs (Hades Docker)
   type: http
-  seq: 4
+  seq: 2
 }
 
 post {
-  url: https://{{hostname}}/v1/benchmark/jenkins?host=https://ma-yu2.aet.cit.tum.de/jenkins&user=admin&api_token=***&job_path=job/hades&use_parameters=true&count=1&commit_hash=123456
+  url: https://{{hostname}}/v1/benchmark/hades-docker?host=https://ma-yu2.aet.cit.tum.de/hades/build&count=1&commit_hash=123456
   body: json
   auth: none
 }
 
 params:query {
-  host: https://ma-yu2.aet.cit.tum.de/jenkins
-  user: admin
-  api_token: ***
-  job_path: job/hades
-  use_parameters: true
+  host: https://ma-yu2.aet.cit.tum.de/hades/build
   count: 1
   commit_hash: 123456
 }

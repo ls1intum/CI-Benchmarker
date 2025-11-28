@@ -2,6 +2,11 @@ package MetricsController
 
 import (
 	"bytes"
+	"log"
+	"math"
+	"net/http"
+	"sort"
+
 	"github.com/Mtze/CI-Benchmarker/persister"
 	_ "github.com/Mtze/CI-Benchmarker/shared/response"
 	"github.com/Mtze/CI-Benchmarker/shared/utils"
@@ -10,10 +15,6 @@ import (
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg/draw"
 	"gonum.org/v1/plot/vg/vgimg"
-	"log"
-	"math"
-	"net/http"
-	"sort"
 )
 
 // MetricSummary describes percentile statistics of a metric.
@@ -43,6 +44,7 @@ type MetricSummary struct {
 // @Param        from         query  string  false  "Start time (RFC3339)"
 // @Param        to           query  string  false  "End time (RFC3339)"
 // @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Param		 executor     query  string  true  "executor filter"
 // @Success      200  {string}  binary  "PNG image"
 // @Failure 	 400  {object} 	response.ErrorMessage
 // @Failure      500  {object}  response.ServerErrorMessage
@@ -58,8 +60,14 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 		commitHash = &hash
 	}
 
+	var executor string
+	if executor = c.Query("executor"); executor == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+		return
+	}
+
 	p := persister.NewDBPersister()
-	latencies, err := p.GetQueueLatenciesInRange(from, to, commitHash)
+	latencies, err := p.GetQueueLatenciesInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching queue latencies:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latencies"})
@@ -78,6 +86,7 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 // @Param        from         query  string  false  "Start time (RFC3339)"
 // @Param        to           query  string  false  "End time (RFC3339)"
 // @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Param		 executor     query  string  true  "executor filter"
 // @Success      200  {string}  binary  "PNG image"
 // @Failure 	 400  {object} 	response.ErrorMessage
 // @Failure      500  {object}   response.ServerErrorMessage
@@ -93,8 +102,14 @@ func GetBuildTimeHistogram(c *gin.Context) {
 		commitHash = &hash
 	}
 
+	var executor string
+	if executor = c.Query("executor"); executor == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+		return
+	}
+
 	p := persister.NewDBPersister()
-	buildTimes, err := p.GetBuildTimesInRange(from, to, commitHash)
+	buildTimes, err := p.GetBuildTimesInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching build times:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build times"})
@@ -113,6 +128,7 @@ func GetBuildTimeHistogram(c *gin.Context) {
 // @Param        from         query  string  false  "Start time (RFC3339)"
 // @Param        to           query  string  false  "End time (RFC3339)"
 // @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Param		 executor     query  string  true  "executor filter"
 // @Success      200  {string}  binary  "PNG image"
 // @Failure 	 400  {object} 	response.ErrorMessage
 // @Failure      500  {object}   response.ServerErrorMessage
@@ -128,8 +144,14 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 		commitHash = &hash
 	}
 
+	var executor string
+	if executor = c.Query("executor"); executor == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+		return
+	}
+
 	p := persister.NewDBPersister()
-	latencies, err := p.GetTotalLatenciesInRange(from, to, commitHash)
+	latencies, err := p.GetTotalLatenciesInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching total latencies:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latencies"})
@@ -152,6 +174,7 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 // @Param        from         query  string  false  "Start time (RFC3339)"
 // @Param        to           query  string  false  "End time (RFC3339)"
 // @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Param		 executor     query  string  true  "executor filter"
 // @Success      200  {object}  MetricSummary
 // @Failure      400  {object}   response.ErrorMessage
 // @Failure      404  {object}   response.NotFoundMessage
@@ -168,8 +191,14 @@ func GetQueueLatencyMetrics(c *gin.Context) {
 		commitHash = &hash
 	}
 
+	var executor string
+	if executor = c.Query("executor"); executor == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+		return
+	}
+
 	p := persister.NewDBPersister()
-	latencies, err := p.GetQueueLatencySummaryInRange(from, to, commitHash)
+	latencies, err := p.GetQueueLatencySummaryInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching queue latency summary:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latency summary"})
@@ -194,6 +223,7 @@ func GetQueueLatencyMetrics(c *gin.Context) {
 // @Param        from         query  string  false  "Start time (RFC3339)"
 // @Param        to           query  string  false  "End time (RFC3339)"
 // @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Param		 executor     query  string  true  "executor filter"
 // @Success      200  {object}  MetricSummary
 // @Failure      400  {object}   response.ErrorMessage
 // @Failure      404  {object}   response.NotFoundMessage
@@ -210,8 +240,14 @@ func GetBuildTimeMetrics(c *gin.Context) {
 		commitHash = &hash
 	}
 
+	var executor string
+	if executor = c.Query("executor"); executor == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+		return
+	}
+
 	p := persister.NewDBPersister()
-	buildTimes, err := p.GetBuildTimeSummaryInRange(from, to, commitHash)
+	buildTimes, err := p.GetBuildTimeSummaryInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching build time summary:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build time summary"})
@@ -236,6 +272,7 @@ func GetBuildTimeMetrics(c *gin.Context) {
 // @Param        from         query  string  false  "Start time (RFC3339)"
 // @Param        to           query  string  false  "End time (RFC3339)"
 // @Param        commit_hash  query  string  false  "Optional commit hash filter"
+// @Param		 executor     query  string  true  "executor filter"
 // @Success      200  {object}  MetricSummary
 // @Failure      400  {object}   response.ErrorMessage
 // @Failure      404  {object}   response.NotFoundMessage
@@ -252,8 +289,14 @@ func GetTotalLatencyMetrics(c *gin.Context) {
 		commitHash = &hash
 	}
 
+	var executor string
+	if executor = c.Query("executor"); executor == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+		return
+	}
+
 	p := persister.NewDBPersister()
-	latencies, err := p.GetTotalLatenciesSummaryInRange(from, to, commitHash)
+	latencies, err := p.GetTotalLatenciesSummaryInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching total latency summary:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latency summary"})
