@@ -64,14 +64,9 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 
 	// Create UUID for this benchmark job
 	jobUUID := uuid.New()
+	jobPayload.QueuePayload.ID = jobUUID
 
-	// Inject UUID into payload metadata
-	if jobPayload.Metadata == nil {
-		jobPayload.Metadata = make(map[string]string)
-	}
-	jobPayload.Metadata["UUID"] = jobUUID.String()
-
-	slog.Info("Assigned UUID to jobPayload", slog.String("uuid", jobUUID.String()))
+	slog.Debug("UUID generated:", slog.String("uuid", jobUUID.String()))
 
 	// Validate Jenkins config
 	if e.JenkinsURL == "" || e.User == "" || e.APIToken == "" || e.JobPath == "" {
@@ -92,7 +87,6 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 	// Build request
 	if e.UseParameters {
 		params, err := e.payloadToParams(jobPayload)
-		// NOTE: params now contain the UUID inside HADES_PAYLOAD_JSON
 		if err != nil {
 			slog.Debug("Error while serializing payload")
 			return jobUUID, err
@@ -130,9 +124,9 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 	defer resp.Body.Close()
 
 	// Validate Jenkins response
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
-		slog.Debug("JenkinsExecutor returned non-200/201/202 status code", slog.Int("status", resp.StatusCode))
-		return jobUUID, errors.New("JenkinsExecutor returned non-200/201/202 status code")
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
+		slog.Debug("JenkinsExecutor returned non-201/202 status code", slog.Int("status", resp.StatusCode))
+		return jobUUID, errors.New("JenkinsExecutor returned non-201/202 status code")
 	}
 
 	return jobUUID, nil
@@ -213,9 +207,6 @@ func (e *JenkinsExecutor) payloadToParams(p payload.RESTPayload) (url.Values, er
 		p.Metadata = make(map[string]string)
 	}
 
-	jenkinsID := uuid.New().String()
-	p.Metadata["jenkinsId"] = jenkinsID
-
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, err
@@ -223,6 +214,7 @@ func (e *JenkinsExecutor) payloadToParams(p payload.RESTPayload) (url.Values, er
 
 	values := url.Values{}
 	values.Set("HADES_PAYLOAD_JSON", string(b))
+	values.Set("HADES_UUID", p.ID.String())
 
 	return values, nil
 }
