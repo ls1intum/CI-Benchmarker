@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/ls1intum/hades/shared/payload"
@@ -21,11 +23,25 @@ type JenkinsExecutor struct {
 	APIToken      string
 	JobPath       string
 	UseParameters bool
+
+	crumbField  string
+	crumbValue  string
+	crumbExpiry time.Time
+	crumbMu     sync.Mutex
 }
 
 type crumbResp struct {
 	Crumb             string `json:"crumb"`
 	CrumbRequestField string `json:"crumbRequestField"`
+}
+
+var jenkinsClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxConnsPerHost:     100,
+		MaxIdleConnsPerHost: 100,
+	},
 }
 
 func NewJenkinsExecutor(jenkinsURL string, user string, APIToken string, path string, useParameters bool) *JenkinsExecutor {
@@ -46,90 +62,125 @@ func (e *JenkinsExecutor) Name() string {
 func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, error) {
 	slog.Debug("Executing JenkinsExecutor")
 
+	// Create UUID for this benchmark job
+	jobUUID := uuid.New()
+	jobPayload.QueuePayload.ID = jobUUID
+
+	slog.Debug("UUID generated:", slog.String("uuid", jobUUID.String()))
+
+	// Validate Jenkins config
 	if e.JenkinsURL == "" || e.User == "" || e.APIToken == "" || e.JobPath == "" {
 		slog.Debug("JenkinsExecutor not configured properly")
-		return uuid.UUID{}, errors.New("JenkinsExecutor not configured: need JenkinsURL, User, APIToken, JobPath")
+		return jobUUID, errors.New("JenkinsExecutor not configured: need JenkinsURL, User, APIToken, JobPath")
 	}
 
+	// Get Jenkins crumb
 	crumbField, crumbValue, err := e.getCrumb()
 	if err != nil {
 		slog.Debug("Error while getting Jenkins crumb")
-		return uuid.UUID{}, err
+		return jobUUID, err
 	}
 
 	var endpoint string
 	var req *http.Request
 
+	// Build request
 	if e.UseParameters {
 		params, err := e.payloadToParams(jobPayload)
 		if err != nil {
 			slog.Debug("Error while serializing payload")
-			return uuid.UUID{}, err
+			return jobUUID, err
 		}
-		endpoint = e.JenkinsURL + "/" + strings.TrimLeft(e.JobPath, "/") + "/buildWithParameters"
 
+		endpoint = e.JenkinsURL + "/" + strings.TrimLeft(e.JobPath, "/") + "/buildWithParameters"
 		req, err = http.NewRequest(http.MethodPost, endpoint, strings.NewReader(params.Encode()))
 		if err != nil {
 			slog.Debug("Error while creating POST request to Jenkins (parameters)")
-			return uuid.UUID{}, err
+			return jobUUID, err
 		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	} else {
 		endpoint = e.JenkinsURL + "/" + strings.TrimLeft(e.JobPath, "/") + "/build"
-
-		var err error
 		req, err = http.NewRequest(http.MethodPost, endpoint, nil)
 		if err != nil {
 			slog.Debug("Error while creating POST request to Jenkins (no parameters)")
-			return uuid.UUID{}, err
+			return jobUUID, err
 		}
 	}
 
+	// Set auth & crumb
 	req.SetBasicAuth(e.User, e.APIToken)
 	if crumbField != "" && crumbValue != "" {
 		req.Header.Set(crumbField, crumbValue)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	// Send request
+	resp, err := jenkinsClient.Do(req)
 	if err != nil {
 		slog.Debug("Error while sending POST request to Jenkins")
-		return uuid.UUID{}, err
+		return jobUUID, err
 	}
 	defer resp.Body.Close()
 
+	// Validate Jenkins response
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		slog.Debug("JenkinsExecutor returned non-201/202 status code", slog.Int("status", resp.StatusCode))
-		return uuid.UUID{}, errors.New("JenkinsExecutor returned non-201/202 status code")
+		return jobUUID, errors.New("JenkinsExecutor returned non-201/202 status code")
 	}
 
-	loc := strings.TrimSpace(resp.Header.Get("Location"))
-	if loc == "" {
-		slog.Debug("JenkinsExecutor missing Location header")
-		return uuid.UUID{}, errors.New("JenkinsExecutor response missing Location header (queue item url)")
-	}
-
-	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(strings.TrimRight(loc, "/")))
-	slog.Info("JenkinsExecutor queued successfully", slog.String("queue_url", loc), slog.Any("jobID", id))
-
-	return id, nil
+	return jobUUID, nil
 }
 
 func (e *JenkinsExecutor) getCrumb() (field string, value string, err error) {
+
+	now := time.Now()
+
+	// -----------------------------
+	// First quick check (no lock)
+	// -----------------------------
+	if e.crumbField != "" && now.Before(e.crumbExpiry) {
+		return e.crumbField, e.crumbValue, nil
+	}
+
+	// -----------------------------
+	// Acquire lock for refresh
+	// -----------------------------
+	e.crumbMu.Lock()
+	defer e.crumbMu.Unlock()
+
+	// -----------------------------
+	// Double-check after locking
+	// -----------------------------
+	if e.crumbField != "" && now.Before(e.crumbExpiry) {
+		return e.crumbField, e.crumbValue, nil
+	}
+
+	// -----------------------------
+	// Actually fetch new crumb
+	// -----------------------------
+	slog.Info("Fetching new Jenkins crumb...")
+
 	req, err := http.NewRequest(http.MethodGet, e.JenkinsURL+"/crumbIssuer/api/json", nil)
 	if err != nil {
 		return "", "", err
 	}
 	req.SetBasicAuth(e.User, e.APIToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := jenkinsClient.Do(req)
 	if err != nil {
 		return "", "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
+		// Jenkins has crumb disabled
+		e.crumbField = ""
+		e.crumbValue = ""
+		e.crumbExpiry = now.Add(30 * time.Minute) // arbitrary good TTL
 		return "", "", nil
 	}
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", "", errors.New("failed to get Jenkins crumb")
 	}
@@ -138,15 +189,32 @@ func (e *JenkinsExecutor) getCrumb() (field string, value string, err error) {
 	if err := json.NewDecoder(resp.Body).Decode(&c); err != nil {
 		return "", "", err
 	}
-	return c.CrumbRequestField, c.Crumb, nil
+
+	// -----------------------------
+	// Save to cache with TTL
+	// -----------------------------
+	e.crumbField = c.CrumbRequestField
+	e.crumbValue = c.Crumb
+	e.crumbExpiry = now.Add(45 * time.Minute) // safer than 1h, Jenkins default
+
+	slog.Info("Fetched new crumb", "expires_at", e.crumbExpiry.String())
+
+	return e.crumbField, e.crumbValue, nil
 }
 
 func (e *JenkinsExecutor) payloadToParams(p payload.RESTPayload) (url.Values, error) {
-	values := url.Values{}
+	if p.Metadata == nil {
+		p.Metadata = make(map[string]string)
+	}
+
 	b, err := json.Marshal(p)
 	if err != nil {
 		return nil, err
 	}
+
+	values := url.Values{}
 	values.Set("HADES_PAYLOAD_JSON", string(b))
+	values.Set("HADES_UUID", p.ID.String())
+
 	return values, nil
 }
