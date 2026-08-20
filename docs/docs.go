@@ -9,7 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "https://github.com/Mtze/CI-Benchmarker",
+        "termsOfService": "https://github.com/Hades-Scheduler/CI-Benchmarker",
         "contact": {
             "name": "Shuaiwei Yu",
             "url": "https://github.com/Mtze",

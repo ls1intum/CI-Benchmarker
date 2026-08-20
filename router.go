@@ -1,16 +1,16 @@
 package main
 
 import (
-	_ "github.com/Mtze/CI-Benchmarker/docs"
+	_ "github.com/Hades-Scheduler/CI-Benchmarker/docs"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"log/slog"
 	"time"
 
-	"github.com/Mtze/CI-Benchmarker/MetricsController"
-	"github.com/Mtze/CI-Benchmarker/benchmarkController"
-	_ "github.com/Mtze/CI-Benchmarker/shared/response"
+	"github.com/Hades-Scheduler/CI-Benchmarker/MetricsController"
+	"github.com/Hades-Scheduler/CI-Benchmarker/benchmarkController"
+	_ "github.com/Hades-Scheduler/CI-Benchmarker/shared/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )

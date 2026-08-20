@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/ls1intum/hades/shared/payload"
+	"github.com/hades-scheduler/hades/shared/payload"
 )
 
 // Compile-time check to ensure HadesDockerExecutor and HadesKubernetesExecutor implement the Executor interface

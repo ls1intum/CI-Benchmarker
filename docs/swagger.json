@@ -7,7 +7,7 @@
     "info": {
         "description": "Benchmark system collecting CI latency, build time and metrics.",
         "title": "CI-Benchmarker API",
-        "termsOfService": "https://github.com/Mtze/CI-Benchmarker",
+        "termsOfService": "https://github.com/Hades-Scheduler/CI-Benchmarker",
         "contact": {
             "name": "Shuaiwei Yu",
             "url": "https://github.com/Mtze",

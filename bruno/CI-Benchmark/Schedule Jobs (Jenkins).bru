@@ -32,7 +32,7 @@ body:json {
       {
         "id": 1,
         "name": "Report Starting Time",
-        "image": "ghcr.io/ls1intum/hades-reporter/hades-reporter:latest",
+        "image": "ghcr.io/hades-scheduler/hades-reporter/hades-reporter:latest",
         "metadata": {
           "ENDPOINT": "{{start_time_url}}"
         }
@@ -40,7 +40,7 @@ body:json {
       {
         "id": 2, // mandatory to declare the order of execution
         "name": "Clone",
-        "image": "ghcr.io/ls1intum/hades/hades-clone-container:latest", // mandatory
+        "image": "ghcr.io/hades-scheduler/git-container:latest", // mandatory
         "metadata": {
           "REPOSITORY_DIR": "/shared",
           "HADES_TEST_USERNAME": "{{user}}",
@@ -64,7 +64,7 @@ body:json {
       {
         "id": 4,
         "name": "Result",
-        "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
+        "image": "ghcr.io/hades-scheduler/hades/junit-result-parser:latest",
         "metadata": {
           "API_ENDPOINT": "{{end_time_url}}",
           "INGEST_DIR":"./shared/example",

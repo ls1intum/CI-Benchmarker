@@ -4,16 +4,16 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/Mtze/CI-Benchmarker/persister"
-	"github.com/Mtze/CI-Benchmarker/shared/config"
+	"github.com/Hades-Scheduler/CI-Benchmarker/persister"
+	"github.com/Hades-Scheduler/CI-Benchmarker/shared/config"
 
-	docs "github.com/Mtze/CI-Benchmarker/docs"
+	docs "github.com/Hades-Scheduler/CI-Benchmarker/docs"
 )
 
 // @title           CI-Benchmarker API
 // @version         1.0
 // @description     Benchmark system collecting CI latency, build time and metrics.
-// @termsOfService  https://github.com/Mtze/CI-Benchmarker
+// @termsOfService  https://github.com/Hades-Scheduler/CI-Benchmarker
 
 // @contact.name    Shuaiwei Yu
 // @contact.url     https://github.com/Mtze
