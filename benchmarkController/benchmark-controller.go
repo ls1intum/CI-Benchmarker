@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ls1intum/hades/shared/payload"
+	"github.com/hades-scheduler/hades/shared/payload"
 
-	"github.com/Mtze/CI-Benchmarker/executor"
-	"github.com/Mtze/CI-Benchmarker/persister"
+	"github.com/Hades-Scheduler/CI-Benchmarker/executor"
+	"github.com/Hades-Scheduler/CI-Benchmarker/persister"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )

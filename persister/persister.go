@@ -13,7 +13,7 @@ import (
 
 	"github.com/mattn/go-sqlite3"
 
-	"github.com/Mtze/CI-Benchmarker/persister/model"
+	"github.com/Hades-Scheduler/CI-Benchmarker/persister/model"
 	"github.com/google/uuid"
 )
 

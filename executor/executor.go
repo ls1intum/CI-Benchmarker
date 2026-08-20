@@ -2,7 +2,7 @@ package executor
 
 import (
 	"github.com/google/uuid"
-	"github.com/ls1intum/hades/shared/payload"
+	"github.com/hades-scheduler/hades/shared/payload"
 )
 
 // Specify an executor interface

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/Mtze/CI-Benchmarker/persister"
-	_ "github.com/Mtze/CI-Benchmarker/shared/response"
-	"github.com/Mtze/CI-Benchmarker/shared/utils"
+	"github.com/Hades-Scheduler/CI-Benchmarker/persister"
+	_ "github.com/Hades-Scheduler/CI-Benchmarker/shared/response"
+	"github.com/Hades-Scheduler/CI-Benchmarker/shared/utils"
 	"github.com/gin-gonic/gin"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"

@@ -1,0 +1,7 @@
+.git
+.github
+*.md
+docs/img
+bruno
+traefik/acme.json
+.env

@@ -88,7 +88,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  termsOfService: https://github.com/Mtze/CI-Benchmarker
+  termsOfService: https://github.com/Hades-Scheduler/CI-Benchmarker
   title: CI-Benchmarker API
   version: "1.0"
 paths:

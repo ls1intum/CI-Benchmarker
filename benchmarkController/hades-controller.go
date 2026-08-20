@@ -3,8 +3,8 @@ package benchmarkController
 import (
 	"log/slog"
 
-	"github.com/Mtze/CI-Benchmarker/executor"
-	"github.com/Mtze/CI-Benchmarker/persister"
+	"github.com/Hades-Scheduler/CI-Benchmarker/executor"
+	"github.com/Hades-Scheduler/CI-Benchmarker/persister"
 	"github.com/gin-gonic/gin"
 )
 
