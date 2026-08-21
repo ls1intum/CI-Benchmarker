@@ -515,3 +515,29 @@ func TestReceiverHandlesHadesRedelivery(t *testing.T) {
 		t.Errorf("recorded %d distinct deliveries, want 2", deliveries)
 	}
 }
+
+// An oversized callback must be rejected as oversized. io.LimitReader truncated
+// it silently, so it arrived as a short body, failed to parse, and was filed as
+// unparseable - a size problem recorded as a malformed payload, with the
+// truncated bytes stored in the audit log.
+func TestOversizedCallbackIsRejectedAsTooLarge(t *testing.T) {
+	server, store := newReceiver(t)
+
+	// Valid JSON, just far past the cap.
+	padding := strings.Repeat("x", maxCallbackBody+1024)
+	body := `{"job_id":"6f1a5b1e-6d1a-4f5f-9d0e-1a2b3c4d5e6f","status":"succeeded","note":"` + padding + `"}`
+
+	status, _ := postCallback(t, server.Client(), server.URL+"/v1/callback", body)
+	if status != http.StatusRequestEntityTooLarge {
+		t.Errorf("status = %d, want %d", status, http.StatusRequestEntityTooLarge)
+	}
+
+	// It must not have been recorded as a completed measurement.
+	var callbacks int
+	if err := store.DB().QueryRow(`SELECT COUNT(*) FROM job_callback`).Scan(&callbacks); err != nil {
+		t.Fatalf("count callbacks: %v", err)
+	}
+	if callbacks != 0 {
+		t.Errorf("an oversized body produced %d terminal callbacks, want 0", callbacks)
+	}
+}

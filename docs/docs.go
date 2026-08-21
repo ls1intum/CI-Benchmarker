@@ -749,6 +749,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ErrorMessage"
                         }
                     },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {

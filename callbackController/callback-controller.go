@@ -84,6 +84,7 @@ type CallbackResponse struct {
 // @Success      200  {object}  CallbackResponse  "Terminal status recorded, or recognised as a duplicate"
 // @Success      202  {object}  CallbackResponse  "Non-terminal lifecycle notification, logged but not measured"
 // @Failure      400  {object}  response.ErrorMessage
+// @Failure      413  {object}  response.ErrorMessage
 // @Failure      503  {object}  response.ServerErrorMessage
 // @Router       /callback [post]
 func NewStatusCallbackHandler(store *persister.DBPersister) gin.HandlerFunc {
@@ -91,8 +92,22 @@ func NewStatusCallbackHandler(store *persister.DBPersister) gin.HandlerFunc {
 		// Nothing may precede this line. It is the measurement.
 		receivedNs := time.Now().UnixNano()
 
-		body, err := io.ReadAll(io.LimitReader(c.Request.Body, maxCallbackBody))
+		// MaxBytesReader rather than io.LimitReader: LimitReader truncates
+		// silently, so an oversized body arrived as a short one, failed to parse
+		// and was recorded as unparseable - a size problem misfiled as a
+		// malformed payload, with the truncated bytes polluting the audit log.
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxCallbackBody)
+
+		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				slog.Warn("Callback body exceeded the limit",
+					slog.Int64("limit_bytes", tooLarge.Limit))
+				c.JSON(http.StatusRequestEntityTooLarge,
+					gin.H{"error": "callback body too large"})
+				return
+			}
 			slog.Error("Failed to read callback body", slog.Any("error", err))
 			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
 			return
