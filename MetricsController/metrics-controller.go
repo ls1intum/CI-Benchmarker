@@ -19,7 +19,22 @@ import (
 
 // MetricSummary describes percentile statistics of a metric.
 //
-// @Description Percentile and descriptive statistics for a metric (latency / build time).
+// Deprecated: this whole file is the old aggregate path and is kept only so
+// existing dashboards keep responding. It must not be used for published
+// numbers:
+//
+//   - the underlying values are already truncated to whole seconds by
+//     strftime('%s'), which floors each operand independently, so every value
+//     carries an error in (-1s, +1s);
+//   - the arithmetic below is integer arithmetic on those truncated values, so
+//     Average is itself floored again;
+//   - there is no p95, p99 or confidence interval;
+//   - the queries drop every job without a start_time, which is exactly the
+//     population of jobs whose in-workload reporter failed.
+//
+// Use GET /v1/export/jobs and compute statistics in the analysis scripts.
+//
+// @Description Deprecated. Percentile and descriptive statistics for a metric, truncated to whole seconds. Use /v1/export/jobs instead.
 type MetricSummary struct {
 	Description string `json:"description" example:"Queue Latency Summary representing the time taken for jobs to be queued before execution with seconds as unit."`
 	TotalJobs   int    `json:"total_jobs" example:"125"`
@@ -66,7 +81,7 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 		return
 	}
 
-	p := persister.NewDBPersister()
+	p := persister.Default()
 	latencies, err := p.GetQueueLatenciesInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching queue latencies:", err)
@@ -108,7 +123,7 @@ func GetBuildTimeHistogram(c *gin.Context) {
 		return
 	}
 
-	p := persister.NewDBPersister()
+	p := persister.Default()
 	buildTimes, err := p.GetBuildTimesInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching build times:", err)
@@ -150,7 +165,7 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 		return
 	}
 
-	p := persister.NewDBPersister()
+	p := persister.Default()
 	latencies, err := p.GetTotalLatenciesInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching total latencies:", err)
@@ -197,7 +212,7 @@ func GetQueueLatencyMetrics(c *gin.Context) {
 		return
 	}
 
-	p := persister.NewDBPersister()
+	p := persister.Default()
 	latencies, err := p.GetQueueLatencySummaryInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching queue latency summary:", err)
@@ -246,7 +261,7 @@ func GetBuildTimeMetrics(c *gin.Context) {
 		return
 	}
 
-	p := persister.NewDBPersister()
+	p := persister.Default()
 	buildTimes, err := p.GetBuildTimeSummaryInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching build time summary:", err)
@@ -295,7 +310,7 @@ func GetTotalLatencyMetrics(c *gin.Context) {
 		return
 	}
 
-	p := persister.NewDBPersister()
+	p := persister.Default()
 	latencies, err := p.GetTotalLatenciesSummaryInRange(from, to, commitHash, executor)
 	if err != nil {
 		log.Println("Error fetching total latency summary:", err)
