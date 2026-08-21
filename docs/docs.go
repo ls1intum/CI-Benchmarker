@@ -835,10 +835,10 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
-                    "500": {
-                        "description": "Internal Server Error",
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/response.ServerErrorMessage"
+                            "$ref": "#/definitions/response.ErrorMessage"
                         }
                     }
                 }

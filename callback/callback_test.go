@@ -351,3 +351,65 @@ func TestParseHadesUnknownEventStillMeasuresStatus(t *testing.T) {
 		t.Errorf("Event = %q", n.Event)
 	}
 }
+
+// A Jenkins COMPLETED/FINALIZED phase with no build.status says the build ended
+// but not how. statusPaths falls back to build.phase when build.status is
+// missing, so treating the phase as an outcome recorded every result-less build
+// as a SUCCESS - silently inflating the success rate.
+func TestJenkinsPhaseWithoutStatusIsNotASuccess(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"status absent", `{
+			"name": "benchmark-job",
+			"build": {"number": 42, "phase": "COMPLETED",
+				"parameters": {"HADES_UUID": "6f1a5b1e-6d1a-4f5f-9d0e-1a2b3c4d5e6f"}}
+		}`},
+		{"status null", `{
+			"name": "benchmark-job",
+			"build": {"number": 42, "phase": "COMPLETED", "status": null,
+				"parameters": {"HADES_UUID": "6f1a5b1e-6d1a-4f5f-9d0e-1a2b3c4d5e6f"}}
+		}`},
+		{"finalized without status", `{
+			"name": "benchmark-job",
+			"build": {"number": 42, "phase": "FINALIZED",
+				"parameters": {"HADES_UUID": "6f1a5b1e-6d1a-4f5f-9d0e-1a2b3c4d5e6f"}}
+		}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n, err := Parse([]byte(tc.body))
+			if err != nil {
+				t.Fatalf("Parse: %v", err)
+			}
+			if n.Terminal {
+				t.Errorf("Terminal = true for a phase with no reported result")
+			}
+			if n.Status == StatusSucceeded {
+				t.Errorf("Status = %q; a build with no reported result must never count as a success", n.Status)
+			}
+			// The raw value still has to survive for inspection.
+			if n.RawStatus == "" {
+				t.Error("RawStatus is empty; the phase must still be recorded")
+			}
+		})
+	}
+}
+
+// A real Jenkins completion carries build.status, which statusPaths prefers over
+// build.phase, so the normal path must be unaffected by the above.
+func TestJenkinsCompletedWithStatusIsStillTerminal(t *testing.T) {
+	body := []byte(`{
+		"name": "benchmark-job",
+		"build": {"number": 42, "phase": "COMPLETED", "status": "SUCCESS",
+			"parameters": {"HADES_UUID": "6f1a5b1e-6d1a-4f5f-9d0e-1a2b3c4d5e6f"}}
+	}`)
+
+	n, err := Parse(body)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if !n.Terminal || n.Status != StatusSucceeded {
+		t.Errorf("Terminal = %v, Status = %q, want a terminal success", n.Terminal, n.Status)
+	}
+}

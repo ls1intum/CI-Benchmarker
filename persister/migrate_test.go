@@ -109,9 +109,10 @@ func TestMeasurementTimestampColumnsAreIntegers(t *testing.T) {
 
 	expected := map[string][]string{
 		"benchmark_run":  {"started_at_ns", "finished_at_ns"},
-		"job_submission": {"submit_time_ns", "submit_ack_time_ns"},
-		"job_callback":   {"received_time_ns", "last_received_time_ns", "reported_start_time_ns", "reported_end_time_ns"},
-		"job_event":      {"received_time_ns"},
+		"job_submission": {"scheduled_release_ns", "submit_time_ns", "submit_ack_time_ns"},
+		"job_callback": {"received_time_ns", "last_received_time_ns", "reported_queued_time_ns",
+			"reported_start_time_ns", "reported_end_time_ns"},
+		"job_event": {"received_time_ns"},
 	}
 
 	for table, columns := range expected {

@@ -236,6 +236,14 @@ func (b Benchmark) run(ctx context.Context, jobPayload payload.RESTPayload, opts
 	semaphore := make(chan struct{}, opts.concurrency)
 	pacingStart := time.Now()
 
+	// A cancelled request must not return before the launched goroutines are
+	// done. They persist with their own background context, so returning early
+	// would leave benchmark_run with a NULL finished_at and 0/0 tallies while
+	// job_submission kept gaining rows - the run summary would contradict the
+	// exported rows - and would let a shutdown Close() race those writes.
+	var runErr error
+
+submissions:
 	for seq := 0; seq < opts.count; seq++ {
 		// Open-loop pacing: release times are computed from a fixed schedule,
 		// not from when the previous submission finished. A closed-loop pacer
@@ -255,7 +263,8 @@ func (b Benchmark) run(ctx context.Context, jobPayload payload.RESTPayload, opts
 				select {
 				case <-time.After(delay):
 				case <-ctx.Done():
-					return RunResponse{}, ctx.Err()
+					runErr = ctx.Err()
+					break submissions
 				}
 			}
 		}
@@ -263,7 +272,8 @@ func (b Benchmark) run(ctx context.Context, jobPayload payload.RESTPayload, opts
 		select {
 		case semaphore <- struct{}{}:
 		case <-ctx.Done():
-			return RunResponse{}, ctx.Err()
+			runErr = ctx.Err()
+			break submissions
 		}
 
 		wg.Add(1)
@@ -308,8 +318,22 @@ func (b Benchmark) run(ctx context.Context, jobPayload payload.RESTPayload, opts
 	wg.Wait()
 	finishedAt := time.Now()
 
-	if err := b.Persister.FinishRun(ctx, opts.runID, finishedAt.UnixNano(), submitted, failed); err != nil {
+	// Deliberately not the request context: a client that disconnected still
+	// leaves a run whose tallies have to be written, or the row is unusable.
+	// submitted+failed < requested_jobs is then how a cancelled run is
+	// recognised in the data.
+	finishCtx, cancelFinish := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelFinish()
+
+	if err := b.Persister.FinishRun(finishCtx, opts.runID, finishedAt.UnixNano(), submitted, failed); err != nil {
 		slog.Error("Failed to finish run", slog.String("run_id", opts.runID), slog.Any("error", err))
+	}
+
+	if runErr != nil {
+		slog.Warn("Benchmark run cancelled; recorded what was submitted",
+			slog.String("run_id", opts.runID), slog.Int("submitted", submitted),
+			slog.Int("failed", failed), slog.Int("requested", opts.count))
+		return RunResponse{}, runErr
 	}
 
 	slog.Info("Benchmark submission phase complete",

@@ -147,8 +147,12 @@ func applyMigration(ctx context.Context, db *sql.DB, m Migration) error {
 	return tx.Commit()
 }
 
-// SchemaVersion returns the highest applied migration version, or 0 if the
-// database has never been migrated.
+// SchemaVersion returns the highest applied migration version, or 0 when
+// schema_migrations exists but holds no rows.
+//
+// It returns an error, not 0, when schema_migrations does not exist at all -
+// that means the database was never opened through Open, and healthHandler maps
+// the error to a 503 rather than reporting a healthy version 0.
 func SchemaVersion(ctx context.Context, db *sql.DB) (int, error) {
 	var version sql.NullInt64
 	err := db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version)

@@ -43,7 +43,7 @@ var jobCSVHeader = []string{
 // @Param        run_id  query  string  false  "Restrict to one run; omit to export every run"
 // @Param        format  query  string  false  "jsonl or csv"  Enums(jsonl, csv)  default(jsonl)
 // @Success      200  {string}  string  "JSONL or CSV stream"
-// @Failure      500  {object}  response.ServerErrorMessage
+// @Failure      400  {object}  response.ErrorMessage
 // @Router       /export/jobs [get]
 func NewJobExportHandler(store *persister.DBPersister) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -84,7 +84,6 @@ func exportJobsCSV(c *gin.Context, store *persister.DBPersister, runID string) {
 	c.Status(http.StatusOK)
 
 	writer := csv.NewWriter(c.Writer)
-	defer writer.Flush()
 
 	if err := writer.Write(jobCSVHeader); err != nil {
 		slog.Error("Failed to write CSV header", slog.Any("error", err))
@@ -126,8 +125,26 @@ func exportJobsCSV(c *gin.Context, store *persister.DBPersister, runID string) {
 			strconv.FormatBool(row.Completed),
 		})
 	})
+	writer.Flush()
+
+	// The 200 and the header are already on the wire, so failure cannot be
+	// signalled by status code. Append a sentinel row instead: a short but
+	// syntactically valid CSV is otherwise indistinguishable from a complete
+	// one, and an analysis script would silently use an incomplete run. The
+	// JSONL path emits an _export_error record for the same reason.
+	if err == nil {
+		err = writer.Error()
+	}
 	if err != nil {
 		slog.Error("Job export failed", slog.String("run_id", runID), slog.Any("error", err))
+
+		truncated := make([]string, len(jobCSVHeader))
+		truncated[0] = "_export_error"
+		if len(truncated) > 1 {
+			truncated[1] = err.Error()
+		}
+		_ = writer.Write(truncated)
+		writer.Flush()
 	}
 }
 

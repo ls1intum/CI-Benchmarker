@@ -3,6 +3,7 @@ package persister
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log/slog"
 	"sync"
 )
@@ -42,8 +43,19 @@ type writer struct {
 	queue chan *writeRequest
 	wg    sync.WaitGroup
 
+	// mu guards the enqueue/close transition. Senders hold it for reading while
+	// they are on the queue send, close takes it for writing, so the channel can
+	// never be closed with a send in flight.
+	mu     sync.RWMutex
+	closed bool
+
 	closeOnce sync.Once
 }
+
+// ErrWriterClosed is returned when a write is submitted during shutdown. The
+// callback receiver turns this into a 503, so the system under test redelivers
+// and the measurement is recovered on the next start rather than lost.
+var ErrWriterClosed = errors.New("persister: writer is shutting down")
 
 func newWriter(db *sql.DB) *writer {
 	w := &writer{
@@ -60,9 +72,19 @@ func newWriter(db *sql.DB) *writer {
 func (w *writer) do(ctx context.Context, exec func(ctx context.Context, tx *sql.Tx) error) error {
 	req := &writeRequest{exec: exec, done: make(chan error, 1)}
 
+	// Held across the send so close cannot shut the channel underneath it. The
+	// writer goroutine drains until the channel closes, so a full queue still
+	// makes progress while this is held.
+	w.mu.RLock()
+	if w.closed {
+		w.mu.RUnlock()
+		return ErrWriterClosed
+	}
 	select {
 	case w.queue <- req:
+		w.mu.RUnlock()
 	case <-ctx.Done():
+		w.mu.RUnlock()
 		return ctx.Err()
 	}
 
@@ -77,7 +99,11 @@ func (w *writer) do(ctx context.Context, exec func(ctx context.Context, tx *sql.
 // close stops the writer after draining everything already queued.
 func (w *writer) close() {
 	w.closeOnce.Do(func() {
+		w.mu.Lock()
+		w.closed = true
 		close(w.queue)
+		w.mu.Unlock()
+
 		w.wg.Wait()
 	})
 }

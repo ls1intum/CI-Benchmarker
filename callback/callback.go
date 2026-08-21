@@ -136,10 +136,10 @@ var terminalStatuses = map[string]string{
 	"unstable":  StatusFailed,
 	"aborted":   StatusStopped,
 	"not_built": StatusStopped,
-	// Common synonyms so a third system under test needs no code change
+	// Common synonyms so a third system under test needs no code change.
+	// Note that "completed" is deliberately NOT here - see nonTerminalStatuses.
 	"ok":        StatusSucceeded,
 	"passed":    StatusSucceeded,
-	"completed": StatusSucceeded,
 	"error":     StatusFailed,
 	"cancelled": StatusStopped,
 	"canceled":  StatusStopped,
@@ -156,6 +156,18 @@ var nonTerminalStatuses = map[string]bool{
 	"started":   true,
 	"pending":   true,
 	"scheduled": true,
+
+	// "completed" and "finalized" say the build ended, not how it ended. They
+	// are Jenkins build.phase values, and statusPaths falls back to build.phase
+	// when build.status is absent or null - so treating them as an outcome
+	// recorded any build whose result was never reported as a SUCCESS. That
+	// inflates the success rate silently, which is the worst kind of error here.
+	//
+	// A real outcome always arrives in build.status, which statusPaths prefers,
+	// so a normal Jenkins completion is unaffected. Without one the job stays
+	// completed=false in the export, which is visible and checkable.
+	"completed": true,
+	"finalized": true,
 }
 
 // Parse turns a raw callback body into a Notification.

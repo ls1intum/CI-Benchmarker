@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	_ "github.com/Hades-Scheduler/CI-Benchmarker/docs"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -105,7 +106,10 @@ func healthHandler(store *persister.DBPersister) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		schemaVersion, err := persister.SchemaVersion(c.Request.Context(), store.DB())
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "degraded", "error": err.Error()})
+			// /v1/healthz is unauthenticated, and a SQLite error carries the
+			// database path and internal table names.
+			slog.Error("Schema version lookup failed", slog.Any("error", err))
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "degraded", "error": "schema version unavailable"})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -212,12 +216,22 @@ func deprecatedStartTimeHandler(store *persister.DBPersister) gin.HandlerFunc {
 	}
 }
 
-// parseReportedTime accepts RFC3339 with or without fractional seconds.
+// parseReportedTime accepts RFC3339 with or without fractional seconds, plus a
+// zoneless layout kept for the deprecated endpoints' existing callers.
+//
+// A zoneless value is interpreted as UTC, which is time.Parse's behaviour when
+// the input carries no offset. A caller sending local wall-clock time therefore
+// gets a timestamp shifted by its host's offset with no error. That is tolerable
+// only because these values feed the deprecated legacy tables; everything on the
+// measurement path is stamped from the benchmarker's own clock.
 func parseReportedTime(value string) (time.Time, error) {
 	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05"} {
 		if parsed, err := time.Parse(layout, value); err == nil {
 			return parsed, nil
 		}
 	}
-	return time.Time{}, &time.ParseError{Layout: time.RFC3339, Value: value}
+	// Not a time.ParseError: constructing one by hand leaves LayoutElem,
+	// ValueElem and Message empty, which renders as
+	// `cannot parse "" as ""` and tells the caller nothing.
+	return time.Time{}, fmt.Errorf("%q is not a valid RFC3339 timestamp", value)
 }

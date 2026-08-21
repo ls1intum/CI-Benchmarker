@@ -498,3 +498,66 @@ func TestUnpacedRunsRecordNoSchedule(t *testing.T) {
 		}
 	}
 }
+
+// A client that disconnects mid-run must still leave a usable run row. Before
+// this was handled, `run` returned before wg.Wait() and before FinishRun, so
+// benchmark_run kept finished_at NULL and 0/0 tallies while job_submission went
+// on gaining rows from goroutines that were still going - the summary
+// contradicted the exported rows, and a shutdown could race those writes.
+func TestCancelledRunStillRecordsItsTallies(t *testing.T) {
+	const (
+		count = 40
+		rate  = 50.0 // per second, so the run cannot finish before the cancel
+	)
+
+	exec := &fakeExecutor{delay: 5 * time.Millisecond}
+	benchmark, store := newTestBenchmark(t, exec)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(80 * time.Millisecond)
+		cancel()
+	}()
+
+	runID := "cancelled-run"
+	_, err := benchmark.run(ctx, payload.RESTPayload{Priority: 3}, runOptions{
+		runID:         runID,
+		count:         count,
+		concurrency:   4,
+		ratePerSecond: rate,
+		workloadID:    "w",
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("run error = %v, want context.Canceled", err)
+	}
+
+	runs, err := store.ListRuns(context.Background())
+	if err != nil {
+		t.Fatalf("ListRuns: %v", err)
+	}
+	var run *persister.Run
+	for i := range runs {
+		if runs[i].RunID == runID {
+			run = &runs[i]
+		}
+	}
+	if run == nil {
+		t.Fatal("cancelled run was never recorded")
+	}
+
+	if run.FinishedAtNs == nil {
+		t.Error("finished_at_ns is NULL on a cancelled run; the row is unusable")
+	}
+
+	// The tallies must describe the rows that actually exist.
+	rows := exportRows(t, store, runID)
+	if got := run.SubmittedJobs + run.FailedJobs; got != len(rows) {
+		t.Errorf("run tallies say %d submissions, but %d rows were exported", got, len(rows))
+	}
+	if len(rows) == 0 {
+		t.Error("expected the cancelled run to have submitted something before the cancel")
+	}
+	if len(rows) >= count {
+		t.Errorf("exported %d rows for a run cancelled partway through %d", len(rows), count)
+	}
+}

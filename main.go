@@ -79,7 +79,13 @@ func main() {
 		Handler: startRouter(store, cfg),
 		// No write timeout: an export of a long run legitimately streams for a
 		// while. Read timeouts stay short because callbacks are tiny.
+		//
+		// ReadTimeout bounds reading the request only, so it does not truncate a
+		// long export response. Without it a client can send headers promptly
+		// and then trickle the body indefinitely.
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {

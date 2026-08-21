@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,10 +30,19 @@ type JenkinsExecutor struct {
 
 	client *http.Client
 
-	crumbField  string
-	crumbValue  string
-	crumbExpiry time.Time
-	crumbMu     sync.Mutex
+	// crumb is an immutable snapshot swapped in atomically, so readers never
+	// observe a half-updated field/value pair. crumbMu serialises refreshes only,
+	// so one slow crumb fetch does not stall every concurrent submission.
+	crumb   atomic.Pointer[crumbCache]
+	crumbMu sync.Mutex
+}
+
+// crumbCache is one cached Jenkins CSRF crumb. An empty field means Jenkins has
+// crumbs disabled; the entry is still cached so that is not re-probed per job.
+type crumbCache struct {
+	field  string
+	value  string
+	expiry time.Time
 }
 
 type crumbResp struct {
@@ -141,24 +151,19 @@ func (e *JenkinsExecutor) getCrumb(ctx context.Context) (field string, value str
 
 	now := time.Now()
 
-	// -----------------------------
-	// First quick check (no lock)
-	// -----------------------------
-	if e.crumbField != "" && now.Before(e.crumbExpiry) {
-		return e.crumbField, e.crumbValue, nil
+	// Lock-free read of the current snapshot. The benchmark controller calls
+	// Execute from many goroutines at once, so this must not be a plain field
+	// read racing the refresh below.
+	if c := e.crumb.Load(); c != nil && now.Before(c.expiry) {
+		return c.field, c.value, nil
 	}
 
-	// -----------------------------
-	// Acquire lock for refresh
-	// -----------------------------
 	e.crumbMu.Lock()
 	defer e.crumbMu.Unlock()
 
-	// -----------------------------
-	// Double-check after locking
-	// -----------------------------
-	if e.crumbField != "" && now.Before(e.crumbExpiry) {
-		return e.crumbField, e.crumbValue, nil
+	// Another goroutine may have refreshed while this one waited.
+	if c := e.crumb.Load(); c != nil && time.Now().Before(c.expiry) {
+		return c.field, c.value, nil
 	}
 
 	// -----------------------------
@@ -179,10 +184,9 @@ func (e *JenkinsExecutor) getCrumb(ctx context.Context) (field string, value str
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		// Jenkins has crumb disabled
-		e.crumbField = ""
-		e.crumbValue = ""
-		e.crumbExpiry = now.Add(30 * time.Minute) // arbitrary good TTL
+		// Jenkins has crumbs disabled. Cache that fact so it is not re-probed
+		// once per submitted job.
+		e.crumb.Store(&crumbCache{expiry: now.Add(30 * time.Minute)})
 		return "", "", nil
 	}
 
@@ -195,16 +199,18 @@ func (e *JenkinsExecutor) getCrumb(ctx context.Context) (field string, value str
 		return "", "", err
 	}
 
-	// -----------------------------
-	// Save to cache with TTL
-	// -----------------------------
-	e.crumbField = c.CrumbRequestField
-	e.crumbValue = c.Crumb
-	e.crumbExpiry = now.Add(45 * time.Minute) // safer than 1h, Jenkins default
+	// Published as one immutable value, so a reader cannot see a new field with
+	// an old value.
+	fresh := &crumbCache{
+		field:  c.CrumbRequestField,
+		value:  c.Crumb,
+		expiry: now.Add(45 * time.Minute), // safer than 1h, Jenkins default
+	}
+	e.crumb.Store(fresh)
 
-	slog.Info("Fetched new crumb", "expires_at", e.crumbExpiry.String())
+	slog.Info("Fetched new crumb", "expires_at", fresh.expiry.String())
 
-	return e.crumbField, e.crumbValue, nil
+	return fresh.field, fresh.value, nil
 }
 
 func (e *JenkinsExecutor) payloadToParams(p payload.RESTPayload) (url.Values, error) {
