@@ -45,13 +45,26 @@ type DBPersister struct {
 var ddl string
 var ddlOnce sync.Once
 
-func NewDBPersister() DBPersister {
-	path := config.Load().DBPath
+// resolveDBPath falls back to DefaultDBFile when DB_PATH is unset.
+func resolveDBPath(path string) string {
 	if path == "" {
-		path = DefaultDBFile
+		return DefaultDBFile
 	}
+	return path
+}
 
-	dsn := "file:" + url.PathEscape(path) + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
+// dsnFor builds the SQLite DSN for a filesystem path. The path is
+// percent-escaped so that a `?` or `#` in it cannot truncate the URI or be
+// mistaken for a query parameter. SQLite's own URI parser decodes the escapes
+// again, so an absolute path still resolves to that absolute path - which
+// persister_test.go asserts, because getting it wrong would silently write the
+// database outside the mounted volume.
+func dsnFor(path string) string {
+	return "file:" + url.PathEscape(path) + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
+}
+
+func NewDBPersister() DBPersister {
+	dsn := dsnFor(resolveDBPath(config.Load().DBPath))
 
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
