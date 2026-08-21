@@ -55,7 +55,7 @@ one step.
 | Table | One row per | Purpose |
 | --- | --- | --- |
 | `benchmark_run` | benchmark invocation | provenance: variant, target host, workload, config fingerprint, pacing, version |
-| `job_submission` | submission **attempt** | `submit_time_ns` / `submit_ack_time_ns`, priority, and failures recorded explicitly |
+| `job_submission` | submission **attempt** | `scheduled_release_ns` / `submit_time_ns` / `submit_ack_time_ns`, priority, and failures recorded explicitly |
 | `job_callback` | job | the authoritative terminal observation, idempotent by `job_id` |
 | `job_event` | callback POST | append-only audit of every delivery, including duplicates and unparseable bodies |
 | `scheduled_job`, `job_results` | — | **deprecated**, backs the old endpoints only |
@@ -128,6 +128,24 @@ between variants is only meaningful if the offered load is the same.
 rather than from when the previous submission finished, so a slow system under
 test cannot slow the offered load and hide its own queueing (coordinated
 omission).
+
+The schedule holds only while the concurrency cap has free slots. Once the cap
+binds, submissions are gated by completions no matter how the pacer is written,
+and the run stops offering the rate it was asked for. That distortion is
+recorded rather than hidden: every paced submission stores the
+`scheduled_release_ns` it was due at, and the export derives
+
+```
+schedule_slip_ns = submit_time_ns - scheduled_release_ns
+```
+
+**Check the slip before believing a run's rate.** Slip near zero means the
+offered load was the requested load. Slip that grows with `seq` means the
+concurrency cap or the load generator was the bottleneck, and the numbers
+describe the instrument rather than the system under test - raise `concurrency`
+and re-run. Slip is also what lets latency be recomputed from the intended
+release time instead of the actual one, which is the standard correction for
+coordinated omission.
 
 `HTTP_MAX_CONNS_PER_HOST` defaults to `0`, meaning unlimited, and should stay
 there. A hard cap makes submission N+1 block for a free connection, and that

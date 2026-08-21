@@ -24,13 +24,14 @@ import (
 var jobCSVHeader = []string{
 	"run_id", "seq", "submission_id", "job_id", "variant", "target_host",
 	"workload_id", "config_fingerprint", "priority", "commit_hash",
-	"submit_time_ns", "submit_ack_time_ns", "submit_status", "submit_error",
+	"scheduled_release_ns", "submit_time_ns", "submit_ack_time_ns",
+	"submit_status", "submit_error",
 	"callback_received_time_ns", "callback_status", "callback_raw_status",
 	"callback_reason", "callback_source", "callback_event",
 	"callback_delivery_count", "callback_delivery_attempt",
 	"reported_queued_time_ns", "reported_start_time_ns", "reported_end_time_ns",
 	"reported_duration_ms",
-	"submit_rtt_ns", "end_to_end_ns", "completed",
+	"submit_rtt_ns", "schedule_slip_ns", "end_to_end_ns", "completed",
 }
 
 // NewJobExportHandler streams per-job rows as JSONL or CSV.
@@ -102,6 +103,7 @@ func exportJobsCSV(c *gin.Context, store *persister.DBPersister, runID string) {
 			row.ConfigFingerprint,
 			strconv.Itoa(row.Priority),
 			derefString(row.CommitHash),
+			formatInt64(row.ScheduledReleaseNs),
 			strconv.FormatInt(row.SubmitTimeNs, 10),
 			formatInt64(row.SubmitAckTimeNs),
 			row.SubmitStatus,
@@ -119,6 +121,7 @@ func exportJobsCSV(c *gin.Context, store *persister.DBPersister, runID string) {
 			formatInt64(row.ReportedEndTimeNs),
 			formatInt64(row.ReportedDurationMs),
 			formatInt64(row.SubmitRttNs),
+			formatInt64(row.ScheduleSlipNs),
 			formatInt64(row.EndToEndNs),
 			strconv.FormatBool(row.Completed),
 		})

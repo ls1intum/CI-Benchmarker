@@ -54,6 +54,11 @@ type Submission struct {
 	ConfigFingerprint string
 	Priority          int
 	CommitHash        *string
+	// ScheduledReleaseNs is when the open-loop pacer intended this submission
+	// to go out. SubmitTimeNs - ScheduledReleaseNs is the schedule slip, which
+	// is the only way to tell after the fact whether the offered load was the
+	// load that was requested. NULL for unpaced runs, which have no schedule.
+	ScheduledReleaseNs *int64
 	// SubmitTimeNs is taken immediately BEFORE the executor call, so queue
 	// latency includes the submission round-trip instead of hiding it.
 	SubmitTimeNs int64
@@ -123,10 +128,13 @@ type JobRow struct {
 	Priority          int     `json:"priority"`
 	CommitHash        *string `json:"commit_hash"`
 
-	SubmitTimeNs    int64   `json:"submit_time_ns"`
-	SubmitAckTimeNs *int64  `json:"submit_ack_time_ns"`
-	SubmitStatus    string  `json:"submit_status"`
-	SubmitError     *string `json:"submit_error"`
+	// ScheduledReleaseNs is when the open-loop pacer intended this submission
+	// to go out; NULL on unpaced runs. See ScheduleSlipNs.
+	ScheduledReleaseNs *int64  `json:"scheduled_release_ns"`
+	SubmitTimeNs       int64   `json:"submit_time_ns"`
+	SubmitAckTimeNs    *int64  `json:"submit_ack_time_ns"`
+	SubmitStatus       string  `json:"submit_status"`
+	SubmitError        *string `json:"submit_error"`
 
 	CallbackReceivedTimeNs  *int64  `json:"callback_received_time_ns"`
 	CallbackStatus          *string `json:"callback_status"`
@@ -143,6 +151,12 @@ type JobRow struct {
 
 	// SubmitRttNs is submit_ack_time_ns - submit_time_ns.
 	SubmitRttNs *int64 `json:"submit_rtt_ns"`
+	// ScheduleSlipNs is submit_time_ns - scheduled_release_ns: how far behind
+	// its own schedule the load generator was when this job went out. It is
+	// exported so that the offered load can be verified rather than assumed.
+	// Consistently large slip means the concurrency cap or the generator itself
+	// was the bottleneck, and the run understates the load it claims to apply.
+	ScheduleSlipNs *int64 `json:"schedule_slip_ns"`
 	// EndToEndNs is callback_received_time_ns - submit_time_ns: the complete
 	// observed latency from the instant before submission to the instant the
 	// terminal status arrived. Both endpoints are on the benchmarker's clock,
@@ -208,12 +222,13 @@ func (d *DBPersister) RecordSubmission(ctx context.Context, s Submission) error 
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO job_submission (
     submission_id, run_id, seq, job_id, variant, target_host, workload_id,
-    config_fingerprint, priority, commit_hash, submit_time_ns,
-    submit_ack_time_ns, submit_status, submit_error
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    config_fingerprint, priority, commit_hash, scheduled_release_ns,
+    submit_time_ns, submit_ack_time_ns, submit_status, submit_error
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			s.SubmissionID, s.RunID, s.Seq, nullString(s.JobID), s.Variant, s.TargetHost,
 			s.WorkloadID, s.ConfigFingerprint, s.Priority, nullString(s.CommitHash),
-			s.SubmitTimeNs, nullInt64(s.SubmitAckTimeNs), s.SubmitStatus, nullString(s.SubmitError))
+			nullInt64(s.ScheduledReleaseNs), s.SubmitTimeNs, nullInt64(s.SubmitAckTimeNs),
+			s.SubmitStatus, nullString(s.SubmitError))
 		return err
 	})
 }
@@ -279,7 +294,8 @@ INSERT INTO job_event (
 const jobRowSelect = `
 SELECT s.run_id, s.seq, s.submission_id, s.job_id, s.variant, s.target_host,
        s.workload_id, s.config_fingerprint, s.priority, s.commit_hash,
-       s.submit_time_ns, s.submit_ack_time_ns, s.submit_status, s.submit_error,
+       s.scheduled_release_ns, s.submit_time_ns, s.submit_ack_time_ns,
+       s.submit_status, s.submit_error,
        c.received_time_ns, c.status, c.raw_status, c.reason, c.source, c.event,
        c.delivery_count, c.delivery_attempt, c.reported_queued_time_ns,
        c.reported_start_time_ns, c.reported_end_time_ns, c.reported_duration_ms
@@ -304,7 +320,8 @@ func (d *DBPersister) ExportJobs(ctx context.Context, runID string, fn func(JobR
 		if err := rows.Scan(
 			&r.RunID, &r.Seq, &r.SubmissionID, &r.JobID, &r.Variant, &r.TargetHost,
 			&r.WorkloadID, &r.ConfigFingerprint, &r.Priority, &r.CommitHash,
-			&r.SubmitTimeNs, &r.SubmitAckTimeNs, &r.SubmitStatus, &r.SubmitError,
+			&r.ScheduledReleaseNs, &r.SubmitTimeNs, &r.SubmitAckTimeNs,
+			&r.SubmitStatus, &r.SubmitError,
 			&r.CallbackReceivedTimeNs, &r.CallbackStatus, &r.CallbackRawStatus,
 			&r.CallbackReason, &r.CallbackSource, &r.CallbackEvent,
 			&r.CallbackDeliveryCount, &r.CallbackDeliveryAttempt,
@@ -317,6 +334,10 @@ func (d *DBPersister) ExportJobs(ctx context.Context, runID string, fn func(JobR
 		if r.SubmitAckTimeNs != nil {
 			rtt := *r.SubmitAckTimeNs - r.SubmitTimeNs
 			r.SubmitRttNs = &rtt
+		}
+		if r.ScheduledReleaseNs != nil {
+			slip := r.SubmitTimeNs - *r.ScheduledReleaseNs
+			r.ScheduleSlipNs = &slip
 		}
 		if r.CallbackReceivedTimeNs != nil {
 			e2e := *r.CallbackReceivedTimeNs - r.SubmitTimeNs

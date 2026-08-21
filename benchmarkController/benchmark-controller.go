@@ -224,6 +224,15 @@ func (b Benchmark) run(ctx context.Context, jobPayload payload.RESTPayload, opts
 	// pacer below it is what makes the offered load identical across variants:
 	// both come from this one code path rather than from whatever connection
 	// limit each executor happened to configure.
+	//
+	// While free slots exist the pacer is purely open-loop. Once the cap binds,
+	// submissions are necessarily gated by completions, and no arrangement of
+	// this code changes that - moving the acquire into the goroutine below only
+	// moves where the wait happens, at the cost of an unbounded number of parked
+	// goroutines, since count is not bounded above. What matters is that the
+	// distortion is not silent: scheduled_release_ns records when each
+	// submission was due, so submit_time_ns - scheduled_release_ns quantifies
+	// exactly how far the cap pushed the run off its own schedule.
 	semaphore := make(chan struct{}, opts.concurrency)
 	pacingStart := time.Now()
 
@@ -232,9 +241,17 @@ func (b Benchmark) run(ctx context.Context, jobPayload payload.RESTPayload, opts
 		// not from when the previous submission finished. A closed-loop pacer
 		// would slow down exactly when the system under test slows down, which
 		// hides the queueing it is supposed to reveal (coordinated omission).
+		var scheduledRelease *int64
 		if opts.ratePerSecond > 0 {
 			offset := time.Duration(float64(seq) / opts.ratePerSecond * float64(time.Second))
-			if delay := time.Until(pacingStart.Add(offset)); delay > 0 {
+			releaseAt := pacingStart.Add(offset)
+
+			// Recorded per submission so that slip against the schedule is
+			// measurable afterwards instead of having to be assumed absent.
+			releaseNs := releaseAt.UnixNano()
+			scheduledRelease = &releaseNs
+
+			if delay := time.Until(releaseAt); delay > 0 {
 				select {
 				case <-time.After(delay):
 				case <-ctx.Done():
@@ -250,11 +267,12 @@ func (b Benchmark) run(ctx context.Context, jobPayload payload.RESTPayload, opts
 		}
 
 		wg.Add(1)
-		go func(seq int) {
+		go func(seq int, scheduledRelease *int64) {
 			defer wg.Done()
 			defer func() { <-semaphore }()
 
 			submission := b.submitOne(ctx, jobPayload, opts, variant, targetHost, fingerprint, seq)
+			submission.ScheduledReleaseNs = scheduledRelease
 
 			mu.Lock()
 			if submission.SubmitStatus == persister.SubmitStatusAccepted {
@@ -284,7 +302,7 @@ func (b Benchmark) run(ctx context.Context, jobPayload payload.RESTPayload, opts
 					}
 				}
 			}
-		}(seq)
+		}(seq, scheduledRelease)
 	}
 
 	wg.Wait()

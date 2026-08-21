@@ -388,3 +388,113 @@ func TestPriorityIsRecordedAtSubmitTime(t *testing.T) {
 		t.Errorf("run priority = %d, want 1", runs[0].Priority)
 	}
 }
+
+// The recorded schedule must be the schedule that was asked for: exactly
+// 1/rate apart, independent of how long any individual submission took. Without
+// this, a run cannot show that the load it claims to have offered is the load it
+// actually offered.
+func TestScheduledReleaseIsRecordedAtTheRequestedRate(t *testing.T) {
+	const (
+		count = 12
+		rate  = 200.0 // per second -> 5ms apart
+	)
+
+	exec := &fakeExecutor{delay: 3 * time.Millisecond}
+	benchmark, store := newTestBenchmark(t, exec)
+
+	response := runBenchmark(t, benchmark,
+		fmt.Sprintf("count=%d&rate=%.0f&concurrency=64", count, rate))
+
+	rows := exportRows(t, store, response.RunID)
+	if len(rows) != count {
+		t.Fatalf("exported %d rows, want %d", len(rows), count)
+	}
+
+	step := int64(float64(time.Second) / rate)
+	var origin int64
+	for _, row := range rows {
+		if row.ScheduledReleaseNs == nil {
+			t.Fatalf("seq %d has no scheduled_release_ns on a paced run", row.Seq)
+		}
+		if row.Seq == 0 {
+			origin = *row.ScheduledReleaseNs
+			continue
+		}
+
+		want := origin + int64(row.Seq)*step
+		// The offset is computed in float nanoseconds, so allow a rounding
+		// nanosecond either way - but nothing resembling a real delay.
+		if diff := *row.ScheduledReleaseNs - want; diff > 2 || diff < -2 {
+			t.Errorf("seq %d scheduled at %+d ns relative to the fixed schedule, want it on the schedule",
+				row.Seq, diff)
+		}
+	}
+}
+
+// Schedule slip is the whole point of recording the schedule: when the
+// concurrency cap binds, the run no longer offers the rate it was asked for, and
+// that has to be visible in the exported data rather than silently folded into
+// the latency of the system under test.
+func TestScheduleSlipIsVisibleWhenTheConcurrencyCapBinds(t *testing.T) {
+	const (
+		count = 10
+		rate  = 500.0 // per second -> 2ms apart, so ~18ms of schedule
+		delay = 40 * time.Millisecond
+	)
+
+	// One slot and a slow system under test: the cap cannot keep up with the
+	// requested rate, so the run must report that it fell behind.
+	exec := &fakeExecutor{delay: delay}
+	benchmark, store := newTestBenchmark(t, exec)
+
+	response := runBenchmark(t, benchmark,
+		fmt.Sprintf("count=%d&rate=%.0f&concurrency=1", count, rate))
+
+	rows := exportRows(t, store, response.RunID)
+	if len(rows) != count {
+		t.Fatalf("exported %d rows, want %d", len(rows), count)
+	}
+
+	var last persister.JobRow
+	for _, row := range rows {
+		if row.ScheduleSlipNs == nil {
+			t.Fatalf("seq %d has no schedule_slip_ns", row.Seq)
+		}
+		if *row.ScheduleSlipNs < 0 {
+			t.Errorf("seq %d slipped %d ns, i.e. it went out before it was due",
+				row.Seq, *row.ScheduleSlipNs)
+		}
+		if row.Seq > last.Seq {
+			last = row
+		}
+	}
+
+	// The last submission waits behind count-1 serialised delays, minus the
+	// schedule it was already entitled to consume. Assert it is unmistakably
+	// large rather than pinning an exact figure.
+	minSlip := int64(count-2) * int64(delay)
+	if *last.ScheduleSlipNs < minSlip {
+		t.Errorf("last submission slipped only %v, want at least %v - the cap was throttling the offered rate and the data must show it",
+			time.Duration(*last.ScheduleSlipNs), time.Duration(minSlip))
+	}
+}
+
+// An unpaced run has no schedule, so there is nothing to slip against. Recording
+// a zero would be a fabricated measurement.
+func TestUnpacedRunsRecordNoSchedule(t *testing.T) {
+	exec := &fakeExecutor{}
+	benchmark, store := newTestBenchmark(t, exec)
+
+	response := runBenchmark(t, benchmark, "count=4&concurrency=4")
+
+	for _, row := range exportRows(t, store, response.RunID) {
+		if row.ScheduledReleaseNs != nil {
+			t.Errorf("seq %d recorded a scheduled release of %d on an unpaced run",
+				row.Seq, *row.ScheduledReleaseNs)
+		}
+		if row.ScheduleSlipNs != nil {
+			t.Errorf("seq %d recorded a slip of %d on an unpaced run",
+				row.Seq, *row.ScheduleSlipNs)
+		}
+	}
+}
