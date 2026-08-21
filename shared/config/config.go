@@ -8,6 +8,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Version identifies the build. Override at build time with
+// -ldflags "-X github.com/Hades-Scheduler/CI-Benchmarker/shared/config.Version=<sha>";
+// the Dockerfile does this from its VERSION build argument.
+var Version = "dev"
+
 type Config struct {
 	ServerAddress string `mapstructure:"SERVER_ADDRESS"`
 

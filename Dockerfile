@@ -11,9 +11,15 @@ RUN go mod download
 
 COPY . .
 
+# Stamped into the binary so a running deployment can state which build it is.
+# The CI workflow passes the commit SHA.
+ARG VERSION=dev
+
 ENV CGO_ENABLED=1
 
-RUN go build -o /out/benchmarker .
+RUN go build \
+    -ldflags "-X github.com/Hades-Scheduler/CI-Benchmarker/shared/config.Version=${VERSION}" \
+    -o /out/benchmarker .
 
 FROM alpine
 

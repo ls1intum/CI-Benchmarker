@@ -13,6 +13,11 @@ on:
     types:
       - created
 
+# Read-only by default. The build job escalates to `packages: write` for itself,
+# so the test job cannot push anything even if a dependency misbehaves.
+permissions:
+  contents: read
+
 jobs:
   # Gate the image build on the tests. This is a measurement instrument: an
   # image that fails its own idempotency or timing tests must not be publishable.

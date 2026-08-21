@@ -16,17 +16,23 @@ services:
 
   benchmarker:
     # No `build: .` - the pinned image is what runs, so a redeploy cannot
-    # silently swap in whatever happens to be in the working tree. Pin
-    # BENCHMARKER_IMAGE_TAG to a release for a measurement campaign.
-    image: ghcr.io/hades-scheduler/ci-benchmarker/benchmarker:${BENCHMARKER_IMAGE_TAG:-latest}
+    # silently swap in whatever happens to be in the working tree. There is
+    # deliberately no default: a `latest` fallback would let a redeploy change
+    # the instrument mid-campaign, which is the failure this line exists to
+    # prevent. Set BENCHMARKER_IMAGE_TAG to a release or commit tag.
+    image: ghcr.io/hades-scheduler/ci-benchmarker/benchmarker:${BENCHMARKER_IMAGE_TAG:?set BENCHMARKER_IMAGE_TAG to an immutable release or commit tag}
     container_name: benchmarker
     expose:
       - "8080"
     environment:
+      # Fixed, not taken from .env: the port also appears in `expose` and in the
+      # Traefik loadbalancer label, and a partial override would silently break
+      # routing.
       - SERVER_ADDRESS=8080
-      # Inside the volume, so `docker compose up --force-recreate` cannot
-      # destroy a dataset. This is a measurement instrument; the database is
-      # the result.
+      # Fixed, not taken from .env: this must point inside the volume, so that
+      # `docker compose up --force-recreate` cannot destroy a dataset. This is a
+      # measurement instrument; the database is the result. Mount the volume
+      # elsewhere rather than pointing DB_PATH out of it.
       - DB_PATH=/data/benchmark.db
       - DEBUG=${DEBUG:-false}
     volumes:

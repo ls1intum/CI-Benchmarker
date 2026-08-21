@@ -7,16 +7,18 @@
 ## Usage
 
 ```bash
-cp .env.example .env      # set BENCHMARKER_HOST at least
+cp .env.example .env      # set BENCHMARKER_HOST and BENCHMARKER_IMAGE_TAG
 docker compose up -d
 ```
 
 The database lives in the `benchmark-data` volume rather than in the container
 filesystem, so `--force-recreate` cannot destroy a collected dataset. The
-compose file runs the pinned image; there is deliberately no `build: .`, so a
+compose file runs a pinned image; there is deliberately no `build: .`, so a
 redeploy cannot silently swap in whatever is in the working tree.
+`BENCHMARKER_IMAGE_TAG` has no default and compose refuses to start without it,
+so a campaign cannot accidentally run a moving `latest`.
 
-Use the [bruno](https://www.usebruno.com/) examples in the `bruno` folder to test the system
+Use the [Bruno](https://www.usebruno.com/) examples in [`bruno/`](./bruno) to test the system
 
 ## Development
 
@@ -28,13 +30,14 @@ Start in dev mode
 
 ### Checks
 
-```bash
-gofmt -l .
-go vet ./...
-go test ./...
-```
+These are exactly what CI runs; the image build is gated on them passing.
 
-CI runs all three, and the image build is gated on them passing.
+```bash
+unformatted=$(gofmt -l .)
+test -z "$unformatted"
+go vet ./...
+CGO_ENABLED=1 go test -race -timeout 15m ./...
+```
 
 ### Generate Open API spec
 Install swag by using:
