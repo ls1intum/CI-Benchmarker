@@ -37,9 +37,10 @@ const maxAttempts = 5
 // writer, so the read pool can be wide.
 const readPoolSize = 8
 
-// DBPersister is the SQLite-backed store. One instance is shared process-wide;
-// it holds two connection pools and a writer goroutine, so creating one per
-// HTTP request (as the metrics handlers used to) leaks all three.
+// DBPersister is the SQLite-backed store. One instance is opened at startup and
+// handed to every handler that needs it; it holds two connection pools and a
+// writer goroutine, so creating one per HTTP request (as the metrics handlers
+// used to) leaks all three.
 //
 // Reads and writes get separate handles on purpose. They need different
 // transaction semantics: the writer wants BEGIN IMMEDIATE so it takes the write
@@ -56,11 +57,6 @@ type DBPersister struct {
 
 	closeOnce sync.Once
 }
-
-var (
-	defaultMu    sync.Mutex
-	defaultStore *DBPersister
-)
 
 // resolveDBPath falls back to DefaultDBFile when no path is configured.
 func resolveDBPath(path string) string {
@@ -143,49 +139,6 @@ func Open(path string) (*DBPersister, error) {
 	}, nil
 }
 
-// InitDefault opens the process-wide persister. Call once at startup.
-func InitDefault(path string) (*DBPersister, error) {
-	defaultMu.Lock()
-	defer defaultMu.Unlock()
-
-	if defaultStore != nil {
-		return defaultStore, nil
-	}
-
-	store, err := Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defaultStore = store
-	return store, nil
-}
-
-// Default returns the process-wide persister, or nil if InitDefault has not run.
-// Default returns the process-wide persister, panicking with a named cause if
-// it has not been installed yet.
-//
-// Returning nil here produced a bare nil dereference several frames away, inside
-// whichever deprecated metrics handler happened to run first, which says nothing
-// about the actual mistake. Only the deprecated aggregate endpoints still reach
-// for the global; everything on the measurement path takes the store as an
-// argument.
-func Default() *DBPersister {
-	defaultMu.Lock()
-	defer defaultMu.Unlock()
-
-	if defaultStore == nil {
-		panic("persister: Default() called before InitDefault/SetDefault installed a store")
-	}
-	return defaultStore
-}
-
-// SetDefault installs a persister as the process-wide one. Intended for tests.
-func SetDefault(p *DBPersister) {
-	defaultMu.Lock()
-	defer defaultMu.Unlock()
-	defaultStore = p
-}
-
 // Close drains queued writes and releases the database.
 func (d *DBPersister) Close() error {
 	var err error
@@ -239,10 +192,14 @@ func isDatabaseLockedMsg(err error) bool {
 	return strings.Contains(msg, "database is locked") || strings.Contains(msg, "database table is locked")
 }
 
-// MustOpenDefault opens the process-wide persister or terminates. Used at
-// startup where continuing without a database is meaningless.
-func MustOpenDefault(path string) *DBPersister {
-	store, err := InitDefault(path)
+// MustOpen opens the persister or terminates. Used at startup, where continuing
+// without a database is meaningless.
+//
+// There is deliberately no process-wide instance: every handler is given the
+// store it uses. A package-level default would surface a wiring mistake as a nil
+// dereference inside whichever request happened to arrive first.
+func MustOpen(path string) *DBPersister {
+	store, err := Open(path)
 	if err != nil {
 		slog.Error("Failed to open benchmark database", slog.String("path", path), slog.Any("error", err))
 		panic(err)

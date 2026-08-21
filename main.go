@@ -57,7 +57,7 @@ func main() {
 	})
 
 	slog.Info("Opening benchmark database", slog.String("path", cfg.DBPath))
-	store := persister.MustOpenDefault(cfg.DBPath)
+	store := persister.MustOpen(cfg.DBPath)
 	defer func() {
 		if err := store.Close(); err != nil {
 			slog.Error("Failed to close database", slog.Any("error", err))

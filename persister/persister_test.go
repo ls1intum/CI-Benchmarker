@@ -100,25 +100,3 @@ func TestDSNAppendsExtraParametersWithoutMalformingTheQuery(t *testing.T) {
 		t.Errorf("_journal_mode = %q, want WAL", values.Get("_journal_mode"))
 	}
 }
-
-// A missing default store must name itself rather than surfacing as a nil
-// dereference several frames away inside a deprecated metrics handler.
-func TestDefaultPanicsWithANamedCauseWhenUninitialised(t *testing.T) {
-	defaultMu.Lock()
-	saved := defaultStore
-	defaultStore = nil
-	defaultMu.Unlock()
-	t.Cleanup(func() { SetDefault(saved) })
-
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("Default() returned instead of panicking with an uninitialised store")
-		}
-		if msg, ok := r.(string); !ok || !strings.Contains(msg, "InitDefault") {
-			t.Errorf("panic message %v does not name the cause", r)
-		}
-	}()
-
-	Default()
-}

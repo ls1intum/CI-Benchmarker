@@ -64,32 +64,33 @@ type MetricSummary struct {
 // @Failure 	 400  {object} 	response.ErrorMessage
 // @Failure      500  {object}  response.ServerErrorMessage
 // @Router       /benchmark/queue_latency/histogram [get]
-func GetQueueLatencyHistogram(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
+func NewGetQueueLatencyHistogram(store *persister.DBPersister) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		from, to, ok := utils.ParseTimeParams(c)
+		if !ok {
+			return
+		}
 
-	var commitHash *string
-	if hash := c.Query("commit_hash"); hash != "" {
-		commitHash = &hash
-	}
+		var commitHash *string
+		if hash := c.Query("commit_hash"); hash != "" {
+			commitHash = &hash
+		}
 
-	var executor string
-	if executor = c.Query("executor"); executor == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
-		return
-	}
+		var executor string
+		if executor = c.Query("executor"); executor == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+			return
+		}
 
-	p := persister.Default()
-	latencies, err := p.GetQueueLatenciesInRange(from, to, commitHash, executor)
-	if err != nil {
-		log.Println("Error fetching queue latencies:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latencies"})
-		return
-	}
+		latencies, err := store.GetQueueLatenciesInRange(from, to, commitHash, executor)
+		if err != nil {
+			log.Println("Error fetching queue latencies:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latencies"})
+			return
+		}
 
-	renderPlotAsPNG(c, "Queue Latency Distribution", "Queue Latency (s)", "Frequency", latencies, 20)
+		renderPlotAsPNG(c, "Queue Latency Distribution", "Queue Latency (s)", "Frequency", latencies, 20)
+	}
 }
 
 // GetBuildTimeHistogram godoc
@@ -106,32 +107,33 @@ func GetQueueLatencyHistogram(c *gin.Context) {
 // @Failure 	 400  {object} 	response.ErrorMessage
 // @Failure      500  {object}   response.ServerErrorMessage
 // @Router       /benchmark/build_time/histogram [get]
-func GetBuildTimeHistogram(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
+func NewGetBuildTimeHistogram(store *persister.DBPersister) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		from, to, ok := utils.ParseTimeParams(c)
+		if !ok {
+			return
+		}
 
-	var commitHash *string
-	if hash := c.Query("commit_hash"); hash != "" {
-		commitHash = &hash
-	}
+		var commitHash *string
+		if hash := c.Query("commit_hash"); hash != "" {
+			commitHash = &hash
+		}
 
-	var executor string
-	if executor = c.Query("executor"); executor == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
-		return
-	}
+		var executor string
+		if executor = c.Query("executor"); executor == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+			return
+		}
 
-	p := persister.Default()
-	buildTimes, err := p.GetBuildTimesInRange(from, to, commitHash, executor)
-	if err != nil {
-		log.Println("Error fetching build times:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build times"})
-		return
-	}
+		buildTimes, err := store.GetBuildTimesInRange(from, to, commitHash, executor)
+		if err != nil {
+			log.Println("Error fetching build times:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build times"})
+			return
+		}
 
-	renderPlotAsPNG(c, "Build Time Distribution", "Build Time (s)", "Frequency", buildTimes, 20)
+		renderPlotAsPNG(c, "Build Time Distribution", "Build Time (s)", "Frequency", buildTimes, 20)
+	}
 }
 
 // GetTotalLatencyHistogram godoc
@@ -148,32 +150,33 @@ func GetBuildTimeHistogram(c *gin.Context) {
 // @Failure 	 400  {object} 	response.ErrorMessage
 // @Failure      500  {object}   response.ServerErrorMessage
 // @Router       /benchmark/latency/histogram [get]
-func GetTotalLatencyHistogram(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
+func NewGetTotalLatencyHistogram(store *persister.DBPersister) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		from, to, ok := utils.ParseTimeParams(c)
+		if !ok {
+			return
+		}
 
-	var commitHash *string
-	if hash := c.Query("commit_hash"); hash != "" {
-		commitHash = &hash
-	}
+		var commitHash *string
+		if hash := c.Query("commit_hash"); hash != "" {
+			commitHash = &hash
+		}
 
-	var executor string
-	if executor = c.Query("executor"); executor == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
-		return
-	}
+		var executor string
+		if executor = c.Query("executor"); executor == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+			return
+		}
 
-	p := persister.Default()
-	latencies, err := p.GetTotalLatenciesInRange(from, to, commitHash, executor)
-	if err != nil {
-		log.Println("Error fetching total latencies:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latencies"})
-		return
-	}
+		latencies, err := store.GetTotalLatenciesInRange(from, to, commitHash, executor)
+		if err != nil {
+			log.Println("Error fetching total latencies:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latencies"})
+			return
+		}
 
-	renderPlotAsPNG(c, "Total Latency Distribution", "Total Latency (s)", "Frequency", latencies, 20)
+		renderPlotAsPNG(c, "Total Latency Distribution", "Total Latency (s)", "Frequency", latencies, 20)
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -195,38 +198,39 @@ func GetTotalLatencyHistogram(c *gin.Context) {
 // @Failure      404  {object}   response.NotFoundMessage
 // @Failure      500  {object}   response.ServerErrorMessage
 // @Router       /benchmark/queue_latency/metrics [get]
-func GetQueueLatencyMetrics(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
+func NewGetQueueLatencyMetrics(store *persister.DBPersister) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		from, to, ok := utils.ParseTimeParams(c)
+		if !ok {
+			return
+		}
 
-	var commitHash *string
-	if hash := c.Query("commit_hash"); hash != "" {
-		commitHash = &hash
-	}
+		var commitHash *string
+		if hash := c.Query("commit_hash"); hash != "" {
+			commitHash = &hash
+		}
 
-	var executor string
-	if executor = c.Query("executor"); executor == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
-		return
-	}
+		var executor string
+		if executor = c.Query("executor"); executor == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+			return
+		}
 
-	p := persister.Default()
-	latencies, err := p.GetQueueLatencySummaryInRange(from, to, commitHash, executor)
-	if err != nil {
-		log.Println("Error fetching queue latency summary:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latency summary"})
-		return
-	}
+		latencies, err := store.GetQueueLatencySummaryInRange(from, to, commitHash, executor)
+		if err != nil {
+			log.Println("Error fetching queue latency summary:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch queue latency summary"})
+			return
+		}
 
-	if len(latencies) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
-		return
-	}
+		if len(latencies) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
+			return
+		}
 
-	summary := calculateSummary(latencies, "Queue Latency Summary representing the time taken for jobs to be queued before execution with seconds as unit.")
-	c.JSON(http.StatusOK, summary)
+		summary := calculateSummary(latencies, "Queue Latency Summary representing the time taken for jobs to be queued before execution with seconds as unit.")
+		c.JSON(http.StatusOK, summary)
+	}
 }
 
 // GetBuildTimeMetrics godoc
@@ -244,38 +248,39 @@ func GetQueueLatencyMetrics(c *gin.Context) {
 // @Failure      404  {object}   response.NotFoundMessage
 // @Failure      500  {object}   response.ServerErrorMessage
 // @Router       /benchmark/build_time/metrics [get]
-func GetBuildTimeMetrics(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
+func NewGetBuildTimeMetrics(store *persister.DBPersister) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		from, to, ok := utils.ParseTimeParams(c)
+		if !ok {
+			return
+		}
 
-	var commitHash *string
-	if hash := c.Query("commit_hash"); hash != "" {
-		commitHash = &hash
-	}
+		var commitHash *string
+		if hash := c.Query("commit_hash"); hash != "" {
+			commitHash = &hash
+		}
 
-	var executor string
-	if executor = c.Query("executor"); executor == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
-		return
-	}
+		var executor string
+		if executor = c.Query("executor"); executor == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+			return
+		}
 
-	p := persister.Default()
-	buildTimes, err := p.GetBuildTimeSummaryInRange(from, to, commitHash, executor)
-	if err != nil {
-		log.Println("Error fetching build time summary:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build time summary"})
-		return
-	}
+		buildTimes, err := store.GetBuildTimeSummaryInRange(from, to, commitHash, executor)
+		if err != nil {
+			log.Println("Error fetching build time summary:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch build time summary"})
+			return
+		}
 
-	if len(buildTimes) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
-		return
-	}
+		if len(buildTimes) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
+			return
+		}
 
-	summary := calculateSummary(buildTimes, "Build Time Summary representing the time taken for jobs to complete execution with seconds as unit.")
-	c.JSON(http.StatusOK, summary)
+		summary := calculateSummary(buildTimes, "Build Time Summary representing the time taken for jobs to complete execution with seconds as unit.")
+		c.JSON(http.StatusOK, summary)
+	}
 }
 
 // GetTotalLatencyMetrics godoc
@@ -293,38 +298,39 @@ func GetBuildTimeMetrics(c *gin.Context) {
 // @Failure      404  {object}   response.NotFoundMessage
 // @Failure      500  {object}   response.ServerErrorMessage
 // @Router       /benchmark/latency/metrics [get]
-func GetTotalLatencyMetrics(c *gin.Context) {
-	from, to, ok := utils.ParseTimeParams(c)
-	if !ok {
-		return
-	}
+func NewGetTotalLatencyMetrics(store *persister.DBPersister) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		from, to, ok := utils.ParseTimeParams(c)
+		if !ok {
+			return
+		}
 
-	var commitHash *string
-	if hash := c.Query("commit_hash"); hash != "" {
-		commitHash = &hash
-	}
+		var commitHash *string
+		if hash := c.Query("commit_hash"); hash != "" {
+			commitHash = &hash
+		}
 
-	var executor string
-	if executor = c.Query("executor"); executor == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
-		return
-	}
+		var executor string
+		if executor = c.Query("executor"); executor == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Executor filter is required"})
+			return
+		}
 
-	p := persister.Default()
-	latencies, err := p.GetTotalLatenciesSummaryInRange(from, to, commitHash, executor)
-	if err != nil {
-		log.Println("Error fetching total latency summary:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latency summary"})
-		return
-	}
+		latencies, err := store.GetTotalLatenciesSummaryInRange(from, to, commitHash, executor)
+		if err != nil {
+			log.Println("Error fetching total latency summary:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch total latency summary"})
+			return
+		}
 
-	if len(latencies) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
-		return
-	}
+		if len(latencies) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"message": "No data found"})
+			return
+		}
 
-	summary := calculateSummary(latencies, "Total Latency Summary representing the end-to-end time from job creation to job completion (seconds).")
-	c.JSON(http.StatusOK, summary)
+		summary := calculateSummary(latencies, "Total Latency Summary representing the end-to-end time from job creation to job completion (seconds).")
+		c.JSON(http.StatusOK, summary)
+	}
 }
 
 //------------------------------------------------------------------------------

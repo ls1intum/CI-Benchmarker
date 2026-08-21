@@ -74,12 +74,12 @@ func startRouter(store *persister.DBPersister, cfg config.Config) *gin.Engine {
 
 		// Deprecated aggregate endpoints, kept so old dashboards keep working.
 		// They read the legacy tables and truncate to whole seconds.
-		benchmarkGroup.GET("/latency/histogram", MetricsController.GetTotalLatencyHistogram)
-		benchmarkGroup.GET("/latency/metrics", MetricsController.GetTotalLatencyMetrics)
-		benchmarkGroup.GET("/queue_latency/histogram", MetricsController.GetQueueLatencyHistogram)
-		benchmarkGroup.GET("/queue_latency/metrics", MetricsController.GetQueueLatencyMetrics)
-		benchmarkGroup.GET("/build_time/histogram", MetricsController.GetBuildTimeHistogram)
-		benchmarkGroup.GET("/build_time/metrics", MetricsController.GetBuildTimeMetrics)
+		benchmarkGroup.GET("/latency/histogram", MetricsController.NewGetTotalLatencyHistogram(store))
+		benchmarkGroup.GET("/latency/metrics", MetricsController.NewGetTotalLatencyMetrics(store))
+		benchmarkGroup.GET("/queue_latency/histogram", MetricsController.NewGetQueueLatencyHistogram(store))
+		benchmarkGroup.GET("/queue_latency/metrics", MetricsController.NewGetQueueLatencyMetrics(store))
+		benchmarkGroup.GET("/build_time/histogram", MetricsController.NewGetBuildTimeHistogram(store))
+		benchmarkGroup.GET("/build_time/metrics", MetricsController.NewGetBuildTimeMetrics(store))
 	}
 
 	// Raw export. Everything in the paper is generated from here.
