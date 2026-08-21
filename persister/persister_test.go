@@ -2,8 +2,10 @@ package persister
 
 import (
 	"database/sql"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -61,5 +63,40 @@ func TestDefaultDBFileUsedWhenPathEmpty(t *testing.T) {
 	}
 	if got := resolveDBPath("/data/benchmark.db"); got != "/data/benchmark.db" {
 		t.Errorf("resolveDBPath overrode an explicit path: got %q", got)
+	}
+}
+
+// The reader and the writer must differ only in locking behaviour, and the
+// writer's DSN has to stay well-formed however the shared parameters change.
+func TestDSNAppendsExtraParametersWithoutMalformingTheQuery(t *testing.T) {
+	read := dsnFor("/data/benchmark.db")
+	write := dsnFor("/data/benchmark.db", "_txlock=immediate")
+
+	if strings.Contains(read, "&&") || strings.HasSuffix(read, "&") {
+		t.Errorf("read DSN is malformed: %s", read)
+	}
+	if strings.Contains(write, "&&") || strings.HasSuffix(write, "&") {
+		t.Errorf("write DSN is malformed: %s", write)
+	}
+	if strings.Count(write, "?") != 1 {
+		t.Errorf("write DSN has %d query separators: %s", strings.Count(write, "?"), write)
+	}
+	if !strings.HasSuffix(write, "&_txlock=immediate") {
+		t.Errorf("write DSN did not gain _txlock=immediate: %s", write)
+	}
+	if write != read+"&_txlock=immediate" {
+		t.Errorf("read and write DSNs differ by more than the lock mode:\nread  %s\nwrite %s", read, write)
+	}
+
+	query := write[strings.Index(write, "?")+1:]
+	values, err := url.ParseQuery(query)
+	if err != nil {
+		t.Fatalf("write DSN query does not parse: %v", err)
+	}
+	if values.Get("_txlock") != "immediate" {
+		t.Errorf("_txlock = %q, want immediate", values.Get("_txlock"))
+	}
+	if values.Get("_journal_mode") != "WAL" {
+		t.Errorf("_journal_mode = %q, want WAL", values.Get("_journal_mode"))
 	}
 }

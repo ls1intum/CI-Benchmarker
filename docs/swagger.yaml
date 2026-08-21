@@ -1,8 +1,8 @@
 basePath: /v1
 definitions:
   MetricsController.MetricSummary:
-    description: Percentile and descriptive statistics for a metric (latency / build
-      time).
+    description: Deprecated. Percentile and descriptive statistics for a metric, truncated
+      to whole seconds. Use /v1/export/jobs instead.
     properties:
       average:
         example: 12
@@ -30,6 +30,96 @@ definitions:
         example: 125
         type: integer
     type: object
+  benchmarkController.RunResponse:
+    description: Result of a benchmark submission phase.
+    properties:
+      concurrency:
+        type: integer
+      config_fingerprint:
+        type: string
+      export_url:
+        type: string
+      failed_jobs:
+        type: integer
+      rate_per_second:
+        type: number
+      requested_jobs:
+        type: integer
+      run_id:
+        type: string
+      submit_wall_clock_ns:
+        type: integer
+      submitted_jobs:
+        type: integer
+      target_host:
+        type: string
+      variant:
+        type: string
+      workload_id:
+        type: string
+    type: object
+  callbackController.CallbackResponse:
+    description: Outcome of a status callback.
+    properties:
+      accepted:
+        type: boolean
+      delivery_count:
+        type: integer
+      duplicate:
+        type: boolean
+      job_id:
+        type: string
+      source:
+        type: string
+      terminal:
+        type: boolean
+    type: object
+  callbackController.StatusCallback:
+    description: Terminal status notification pushed by a system under test.
+    properties:
+      attempt:
+        description: Attempt is the sender's redelivery counter; the first delivery
+          is 1.
+        example: 1
+        type: integer
+      duration_ms:
+        description: DurationMs is the system under test's own elapsed time.
+        example: 36000
+        type: integer
+      event:
+        description: Event is the Hades discriminator. Recorded, never switched on.
+        example: job.completed
+        type: string
+      finished_at:
+        example: "2026-08-21T12:00:41Z"
+        type: string
+      job_id:
+        description: |-
+          JobID is the id the benchmarker submitted under. Hades sends it as
+          job_id; the Jenkins notification plugin returns it in
+          build.parameters.HADES_UUID.
+        example: 6f1a5b1e-6d1a-4f5f-9d0e-1a2b3c4d5e6f
+        type: string
+      queued_at:
+        description: |-
+          QueuedAt, StartedAt and FinishedAt are the system under test's view.
+          They are stored for provenance and are never used to compute latency.
+        example: "2026-08-21T12:00:00Z"
+        type: string
+      reason:
+        description: Reason optionally explains a non-success terminal state.
+        example: 'ImagePullBackOff: no such image'
+        type: string
+      started_at:
+        example: "2026-08-21T12:00:05Z"
+        type: string
+      status:
+        description: |-
+          Status is the terminal state. Hades uses Succeeded/Failed/Stopped,
+          Jenkins uses SUCCESS/FAILURE/UNSTABLE/ABORTED.
+        example: Succeeded
+        type: string
+    type: object
   main.JobStartTime:
     properties:
       buildStartTime:
@@ -52,6 +142,102 @@ definitions:
       testsRepoCommitHash:
         type: string
       uuid:
+        type: string
+    type: object
+  payload.RESTPayload:
+    properties:
+      callback_url:
+        description: Optional per-job destination for forwarding aggregated logs/results.
+          Must be an absolute http/https URL with a host.
+        format: uri
+        type: string
+      id:
+        description: Unique job identifier
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        description: Additional job-level metadata
+        type: object
+      name:
+        description: Human-readable job name
+        type: string
+      priority:
+        description: Priority level (1=low, 2=medium, 3+=high)
+        type: integer
+      steps:
+        description: Ordered list of steps to execute
+        items:
+          $ref: '#/definitions/payload.Step'
+        type: array
+      timestamp:
+        description: Job creation timestamp
+        type: string
+    required:
+    - name
+    type: object
+  payload.Step:
+    properties:
+      continue_on_error:
+        description: Whether to continue with the next step if this step fails
+        type: boolean
+      cpu_limit:
+        description: CPU limit in millicores (e.g., 1000 = 1 CPU core)
+        type: integer
+      id:
+        description: Step execution order (starts at 1)
+        type: integer
+      image:
+        description: Container image to use (e.g., "alpine:latest")
+        type: string
+      memory_limit:
+        description: Memory limit (e.g., "512M", "2G")
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        description: Step-specific environment variables and metadata
+        type: object
+      name:
+        description: Human-readable step name
+        type: string
+      script:
+        description: Shell script to execute in the container
+        type: string
+    type: object
+  persister.Run:
+    properties:
+      benchmarker_version:
+        type: string
+      commit_hash:
+        type: string
+      concurrency:
+        type: integer
+      config_fingerprint:
+        type: string
+      failed_jobs:
+        type: integer
+      finished_at_ns:
+        type: integer
+      notes:
+        type: string
+      priority:
+        type: integer
+      rate_per_second:
+        type: number
+      requested_jobs:
+        type: integer
+      run_id:
+        type: string
+      started_at_ns:
+        type: integer
+      submitted_jobs:
+        type: integer
+      target_host:
+        type: string
+      variant:
+        type: string
+      workload_id:
         type: string
     type: object
   response.ErrorMessage:
@@ -84,13 +270,17 @@ info:
     email: yu.shuaiwei@tum.de
     name: Shuaiwei Yu
     url: https://github.com/Mtze
-  description: Benchmark system collecting CI latency, build time and metrics.
+  description: 'Measurement instrument for comparing CI job-execution variants. Jobs
+    are submitted over REST and completions are observed over REST: the system under
+    test posts a terminal status callback to /v1/callback and the benchmarker stamps
+    arrival on its own clock. Analysis is done on the raw rows from /v1/export/jobs,
+    never on the aggregate endpoints.'
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
   termsOfService: https://github.com/Hades-Scheduler/CI-Benchmarker
   title: CI-Benchmarker API
-  version: "1.0"
+  version: "2.0"
 paths:
   /benchmark/build_time/histogram:
     get:
@@ -107,6 +297,11 @@ paths:
       - description: Optional commit hash filter
         in: query
         name: commit_hash
+        type: string
+      - description: executor filter
+        in: query
+        name: executor
+        required: true
         type: string
       produces:
       - image/png
@@ -142,6 +337,11 @@ paths:
         in: query
         name: commit_hash
         type: string
+      - description: executor filter
+        in: query
+        name: executor
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -164,6 +364,218 @@ paths:
       summary: Build time statistics
       tags:
       - metrics
+  /benchmark/hades-docker:
+    post:
+      consumes:
+      - application/json
+      description: Submits jobs to a Hades instance running the Docker executor.
+      parameters:
+      - description: Hades REST endpoint to submit to
+        in: query
+        name: host
+        required: true
+        type: string
+      - default: 1
+        description: Number of jobs to submit
+        in: query
+        name: count
+        type: integer
+      - description: Run identifier; generated when omitted
+        in: query
+        name: run_id
+        type: string
+      - description: Maximum in-flight submissions
+        in: query
+        name: concurrency
+        type: integer
+      - description: Offered submissions per second
+        in: query
+        name: rate
+        type: number
+      - description: Identifier for the submitted payload
+        in: query
+        name: workload_id
+        type: string
+      - description: Optional run tag
+        in: query
+        name: commit_hash
+        type: string
+      - description: Where Hades should POST terminal status; defaults to CALLBACK_BASE_URL
+          + /v1/callback
+        in: query
+        name: status_callback_url
+        type: string
+      - description: Job payload to submit
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/payload.RESTPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/benchmarkController.RunResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Benchmark Hades with the Docker executor
+      tags:
+      - benchmark
+  /benchmark/hades-k8s:
+    post:
+      consumes:
+      - application/json
+      description: Submits jobs to a Hades instance running the Kubernetes executor.
+      parameters:
+      - description: Hades REST endpoint to submit to
+        in: query
+        name: host
+        required: true
+        type: string
+      - default: 1
+        description: Number of jobs to submit
+        in: query
+        name: count
+        type: integer
+      - description: Run identifier; generated when omitted
+        in: query
+        name: run_id
+        type: string
+      - description: Maximum in-flight submissions
+        in: query
+        name: concurrency
+        type: integer
+      - description: Offered submissions per second
+        in: query
+        name: rate
+        type: number
+      - description: Identifier for the submitted payload
+        in: query
+        name: workload_id
+        type: string
+      - description: Optional run tag
+        in: query
+        name: commit_hash
+        type: string
+      - description: Where Hades should POST terminal status; defaults to CALLBACK_BASE_URL
+          + /v1/callback
+        in: query
+        name: status_callback_url
+        type: string
+      - description: Job payload to submit
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/payload.RESTPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/benchmarkController.RunResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Benchmark Hades with the Kubernetes executor
+      tags:
+      - benchmark
+  /benchmark/jenkins:
+    post:
+      consumes:
+      - application/json
+      description: Triggers Jenkins builds. The benchmarker generates the job id and
+        passes it as the HADES_UUID build parameter, which the Jenkins post-build
+        notification returns in build.parameters so the callback can be matched.
+      parameters:
+      - description: Jenkins base URL
+        in: query
+        name: host
+        required: true
+        type: string
+      - description: Jenkins user
+        in: query
+        name: user
+        required: true
+        type: string
+      - description: Jenkins API token
+        in: query
+        name: api_token
+        required: true
+        type: string
+      - description: Path to the Jenkins job
+        in: query
+        name: job_path
+        required: true
+        type: string
+      - default: false
+        description: Trigger with build parameters
+        in: query
+        name: use_parameters
+        type: boolean
+      - default: 1
+        description: Number of jobs to submit
+        in: query
+        name: count
+        type: integer
+      - description: Run identifier; generated when omitted
+        in: query
+        name: run_id
+        type: string
+      - description: Maximum in-flight submissions
+        in: query
+        name: concurrency
+        type: integer
+      - description: Offered submissions per second
+        in: query
+        name: rate
+        type: number
+      - description: Identifier for the submitted payload
+        in: query
+        name: workload_id
+        type: string
+      - description: Optional run tag
+        in: query
+        name: commit_hash
+        type: string
+      - description: Job payload to submit
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/payload.RESTPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/benchmarkController.RunResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Benchmark Jenkins
+      tags:
+      - benchmark
   /benchmark/latency/histogram:
     get:
       description: Returns a PNG histogram showing distribution of total latency (seconds).
@@ -179,6 +591,11 @@ paths:
       - description: Optional commit hash filter
         in: query
         name: commit_hash
+        type: string
+      - description: executor filter
+        in: query
+        name: executor
+        required: true
         type: string
       produces:
       - image/png
@@ -213,6 +630,11 @@ paths:
       - description: Optional commit hash filter
         in: query
         name: commit_hash
+        type: string
+      - description: executor filter
+        in: query
+        name: executor
+        required: true
         type: string
       produces:
       - application/json
@@ -252,6 +674,11 @@ paths:
         in: query
         name: commit_hash
         type: string
+      - description: executor filter
+        in: query
+        name: executor
+        required: true
+        type: string
       produces:
       - image/png
       responses:
@@ -286,6 +713,11 @@ paths:
         in: query
         name: commit_hash
         type: string
+      - description: executor filter
+        in: query
+        name: executor
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -308,12 +740,157 @@ paths:
       summary: Queue latency statistics
       tags:
       - metrics
+  /callback:
+    post:
+      consumes:
+      - application/json
+      description: Terminal-status receiver for every variant. Accepts the Hades status
+        webhook (flat object, job_id + status) and the Jenkins post-build notification
+        (nested under "build", job id in build.parameters.HADES_UUID). Arrival is
+        timestamped on the benchmarker's clock before anything else happens, and the
+        write is idempotent by job id, so a retried delivery bumps a counter instead
+        of moving the measurement. Hades delivers at-least-once and retries any non-2xx,
+        so a failed write is answered with 503 to get the measurement redelivered
+        rather than lost.
+      parameters:
+      - description: Status callback
+        in: body
+        name: statusCallback
+        required: true
+        schema:
+          $ref: '#/definitions/callbackController.StatusCallback'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Terminal status recorded, or recognised as a duplicate
+          schema:
+            $ref: '#/definitions/callbackController.CallbackResponse'
+        "202":
+          description: Non-terminal lifecycle notification, logged but not measured
+          schema:
+            $ref: '#/definitions/callbackController.CallbackResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Receive a job status callback
+      tags:
+      - callback
+  /export/callbacks:
+    get:
+      description: Streams every recorded terminal callback as JSON Lines, including
+        ones that never matched a submission. Set only_unmatched=true to list just
+        the orphans, which is worth checking after every run.
+      parameters:
+      - description: Restrict to one run
+        in: query
+        name: run_id
+        type: string
+      - default: false
+        description: Only callbacks with no matching submission
+        in: query
+        name: only_unmatched
+        type: boolean
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: JSONL stream
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: Export raw callbacks
+      tags:
+      - export
+  /export/jobs:
+    get:
+      description: Streams one row per submission attempt, joined to its terminal
+        callback, as JSON Lines (default) or CSV. Jobs that never called back are
+        included with completed=false; excluding them is what produced survivorship
+        bias in the previous design. All analysis and every figure should be generated
+        from this endpoint.
+      parameters:
+      - description: Restrict to one run; omit to export every run
+        in: query
+        name: run_id
+        type: string
+      - default: jsonl
+        description: jsonl or csv
+        enum:
+        - jsonl
+        - csv
+        in: query
+        name: format
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: JSONL or CSV stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorMessage'
+      summary: Export raw per-job records
+      tags:
+      - export
+  /export/runs:
+    get:
+      description: Returns every recorded run with its provenance, newest first.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/persister.Run'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: List benchmark runs
+      tags:
+      - export
+  /healthz:
+    get:
+      description: Reports service health and the applied schema version.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health check
+      tags:
+      - ops
   /result:
     post:
       consumes:
       - application/json
-      description: This endpoint handles the result of a job, The last container in
-        the pipeline should send the result to this endpoint
+      deprecated: true
+      description: Deprecated. Use POST /v1/callback instead. This endpoint requires
+        a reporter container inside the job to call home, which charges that container's
+        image pull and process start to the measurement and loses the job entirely
+        if the reporter fails. It writes only to the legacy job_results table and
+        never feeds /v1/export.
       parameters:
       - description: Job Result Metadata
         in: body
@@ -332,14 +909,20 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.ErrorMessage'
-      summary: Receive job result
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: '[Deprecated] Receive job result from inside the workload'
       tags:
-      - result
+      - deprecated
   /start_time:
     post:
       consumes:
       - application/json
-      description: Submit job start time for benchmarking
+      deprecated: true
+      description: Deprecated. Use POST /v1/callback instead. Writes only to the legacy
+        job_results table and never feeds /v1/export.
       parameters:
       - description: Build Start Time
         in: body
@@ -358,9 +941,13 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.ErrorMessage'
-      summary: Receive build start time
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/response.ServerErrorMessage'
+      summary: '[Deprecated] Receive build start time from inside the workload'
       tags:
-      - start_time
+      - deprecated
 schemes:
 - http
 - https

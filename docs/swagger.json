@@ -5,7 +5,7 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "Benchmark system collecting CI latency, build time and metrics.",
+        "description": "Measurement instrument for comparing CI job-execution variants. Jobs are submitted over REST and completions are observed over REST: the system under test posts a terminal status callback to /v1/callback and the benchmarker stamps arrival on its own clock. Analysis is done on the raw rows from /v1/export/jobs, never on the aggregate endpoints.",
         "title": "CI-Benchmarker API",
         "termsOfService": "https://github.com/Hades-Scheduler/CI-Benchmarker",
         "contact": {
@@ -17,7 +17,7 @@
             "name": "MIT",
             "url": "https://opensource.org/licenses/MIT"
         },
-        "version": "1.0"
+        "version": "2.0"
     },
     "host": "localhost:8080",
     "basePath": "/v1",
@@ -50,6 +50,13 @@
                         "description": "Optional commit hash filter",
                         "name": "commit_hash",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "executor filter",
+                        "name": "executor",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -102,6 +109,13 @@
                         "description": "Optional commit hash filter",
                         "name": "commit_hash",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "executor filter",
+                        "name": "executor",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -121,6 +135,316 @@
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.NotFoundMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/hades-docker": {
+            "post": {
+                "description": "Submits jobs to a Hades instance running the Docker executor.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "benchmark"
+                ],
+                "summary": "Benchmark Hades with the Docker executor",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Hades REST endpoint to submit to",
+                        "name": "host",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Number of jobs to submit",
+                        "name": "count",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Run identifier; generated when omitted",
+                        "name": "run_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum in-flight submissions",
+                        "name": "concurrency",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Offered submissions per second",
+                        "name": "rate",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Identifier for the submitted payload",
+                        "name": "workload_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional run tag",
+                        "name": "commit_hash",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Where Hades should POST terminal status; defaults to CALLBACK_BASE_URL + /v1/callback",
+                        "name": "status_callback_url",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job payload to submit",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/payload.RESTPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/benchmarkController.RunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/hades-k8s": {
+            "post": {
+                "description": "Submits jobs to a Hades instance running the Kubernetes executor.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "benchmark"
+                ],
+                "summary": "Benchmark Hades with the Kubernetes executor",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Hades REST endpoint to submit to",
+                        "name": "host",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Number of jobs to submit",
+                        "name": "count",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Run identifier; generated when omitted",
+                        "name": "run_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum in-flight submissions",
+                        "name": "concurrency",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Offered submissions per second",
+                        "name": "rate",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Identifier for the submitted payload",
+                        "name": "workload_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional run tag",
+                        "name": "commit_hash",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Where Hades should POST terminal status; defaults to CALLBACK_BASE_URL + /v1/callback",
+                        "name": "status_callback_url",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job payload to submit",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/payload.RESTPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/benchmarkController.RunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/benchmark/jenkins": {
+            "post": {
+                "description": "Triggers Jenkins builds. The benchmarker generates the job id and passes it as the HADES_UUID build parameter, which the Jenkins post-build notification returns in build.parameters so the callback can be matched.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "benchmark"
+                ],
+                "summary": "Benchmark Jenkins",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Jenkins base URL",
+                        "name": "host",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Jenkins user",
+                        "name": "user",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Jenkins API token",
+                        "name": "api_token",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Path to the Jenkins job",
+                        "name": "job_path",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Trigger with build parameters",
+                        "name": "use_parameters",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Number of jobs to submit",
+                        "name": "count",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Run identifier; generated when omitted",
+                        "name": "run_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum in-flight submissions",
+                        "name": "concurrency",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Offered submissions per second",
+                        "name": "rate",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Identifier for the submitted payload",
+                        "name": "workload_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional run tag",
+                        "name": "commit_hash",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Job payload to submit",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/payload.RESTPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/benchmarkController.RunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
                         }
                     },
                     "500": {
@@ -160,6 +484,13 @@
                         "description": "Optional commit hash filter",
                         "name": "commit_hash",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "executor filter",
+                        "name": "executor",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -212,6 +543,13 @@
                         "description": "Optional commit hash filter",
                         "name": "commit_hash",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "executor filter",
+                        "name": "executor",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -270,6 +608,13 @@
                         "description": "Optional commit hash filter",
                         "name": "commit_hash",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "executor filter",
+                        "name": "executor",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -322,6 +667,13 @@
                         "description": "Optional commit hash filter",
                         "name": "commit_hash",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "executor filter",
+                        "name": "executor",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -352,9 +704,9 @@
                 }
             }
         },
-        "/result": {
+        "/callback": {
             "post": {
-                "description": "This endpoint handles the result of a job, The last container in the pipeline should send the result to this endpoint",
+                "description": "Terminal-status receiver for every variant. Accepts the Hades status webhook (flat object, job_id + status) and the Jenkins post-build notification (nested under \"build\", job id in build.parameters.HADES_UUID). Arrival is timestamped on the benchmarker's clock before anything else happens, and the write is idempotent by job id, so a retried delivery bumps a counter instead of moving the measurement. Hades delivers at-least-once and retries any non-2xx, so a failed write is answered with 503 to get the measurement redelivered rather than lost.",
                 "consumes": [
                     "application/json"
                 ],
@@ -362,9 +714,204 @@
                     "application/json"
                 ],
                 "tags": [
-                    "result"
+                    "callback"
                 ],
-                "summary": "Receive job result",
+                "summary": "Receive a job status callback",
+                "parameters": [
+                    {
+                        "description": "Status callback",
+                        "name": "statusCallback",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/callbackController.StatusCallback"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Terminal status recorded, or recognised as a duplicate",
+                        "schema": {
+                            "$ref": "#/definitions/callbackController.CallbackResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "Non-terminal lifecycle notification, logged but not measured",
+                        "schema": {
+                            "$ref": "#/definitions/callbackController.CallbackResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/export/callbacks": {
+            "get": {
+                "description": "Streams every recorded terminal callback as JSON Lines, including ones that never matched a submission. Set only_unmatched=true to list just the orphans, which is worth checking after every run.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "export"
+                ],
+                "summary": "Export raw callbacks",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Restrict to one run",
+                        "name": "run_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Only callbacks with no matching submission",
+                        "name": "only_unmatched",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "JSONL stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/export/jobs": {
+            "get": {
+                "description": "Streams one row per submission attempt, joined to its terminal callback, as JSON Lines (default) or CSV. Jobs that never called back are included with completed=false; excluding them is what produced survivorship bias in the previous design. All analysis and every figure should be generated from this endpoint.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "export"
+                ],
+                "summary": "Export raw per-job records",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Restrict to one run; omit to export every run",
+                        "name": "run_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "jsonl",
+                            "csv"
+                        ],
+                        "type": "string",
+                        "default": "jsonl",
+                        "description": "jsonl or csv",
+                        "name": "format",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "JSONL or CSV stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/export/runs": {
+            "get": {
+                "description": "Returns every recorded run with its provenance, newest first.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "export"
+                ],
+                "summary": "List benchmark runs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/persister.Run"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
+                    }
+                }
+            }
+        },
+        "/healthz": {
+            "get": {
+                "description": "Reports service health and the applied schema version.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ops"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/result": {
+            "post": {
+                "description": "Deprecated. Use POST /v1/callback instead. This endpoint requires a reporter container inside the job to call home, which charges that container's image pull and process start to the measurement and loses the job entirely if the reporter fails. It writes only to the legacy job_results table and never feeds /v1/export.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "deprecated"
+                ],
+                "summary": "[Deprecated] Receive job result from inside the workload",
+                "deprecated": true,
                 "parameters": [
                     {
                         "description": "Job Result Metadata",
@@ -388,13 +935,19 @@
                         "schema": {
                             "$ref": "#/definitions/response.ErrorMessage"
                         }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
                     }
                 }
             }
         },
         "/start_time": {
             "post": {
-                "description": "Submit job start time for benchmarking",
+                "description": "Deprecated. Use POST /v1/callback instead. Writes only to the legacy job_results table and never feeds /v1/export.",
                 "consumes": [
                     "application/json"
                 ],
@@ -402,9 +955,10 @@
                     "application/json"
                 ],
                 "tags": [
-                    "start_time"
+                    "deprecated"
                 ],
-                "summary": "Receive build start time",
+                "summary": "[Deprecated] Receive build start time from inside the workload",
+                "deprecated": true,
                 "parameters": [
                     {
                         "description": "Build Start Time",
@@ -428,6 +982,12 @@
                         "schema": {
                             "$ref": "#/definitions/response.ErrorMessage"
                         }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/response.ServerErrorMessage"
+                        }
                     }
                 }
             }
@@ -435,7 +995,7 @@
     },
     "definitions": {
         "MetricsController.MetricSummary": {
-            "description": "Percentile and descriptive statistics for a metric (latency / build time).",
+            "description": "Deprecated. Percentile and descriptive statistics for a metric, truncated to whole seconds. Use /v1/export/jobs instead.",
             "type": "object",
             "properties": {
                 "average": {
@@ -472,6 +1032,121 @@
                 }
             }
         },
+        "benchmarkController.RunResponse": {
+            "description": "Result of a benchmark submission phase.",
+            "type": "object",
+            "properties": {
+                "concurrency": {
+                    "type": "integer"
+                },
+                "config_fingerprint": {
+                    "type": "string"
+                },
+                "export_url": {
+                    "type": "string"
+                },
+                "failed_jobs": {
+                    "type": "integer"
+                },
+                "rate_per_second": {
+                    "type": "number"
+                },
+                "requested_jobs": {
+                    "type": "integer"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "submit_wall_clock_ns": {
+                    "type": "integer"
+                },
+                "submitted_jobs": {
+                    "type": "integer"
+                },
+                "target_host": {
+                    "type": "string"
+                },
+                "variant": {
+                    "type": "string"
+                },
+                "workload_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "callbackController.CallbackResponse": {
+            "description": "Outcome of a status callback.",
+            "type": "object",
+            "properties": {
+                "accepted": {
+                    "type": "boolean"
+                },
+                "delivery_count": {
+                    "type": "integer"
+                },
+                "duplicate": {
+                    "type": "boolean"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "terminal": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "callbackController.StatusCallback": {
+            "description": "Terminal status notification pushed by a system under test.",
+            "type": "object",
+            "properties": {
+                "attempt": {
+                    "description": "Attempt is the sender's redelivery counter; the first delivery is 1.",
+                    "type": "integer",
+                    "example": 1
+                },
+                "duration_ms": {
+                    "description": "DurationMs is the system under test's own elapsed time.",
+                    "type": "integer",
+                    "example": 36000
+                },
+                "event": {
+                    "description": "Event is the Hades discriminator. Recorded, never switched on.",
+                    "type": "string",
+                    "example": "job.completed"
+                },
+                "finished_at": {
+                    "type": "string",
+                    "example": "2026-08-21T12:00:41Z"
+                },
+                "job_id": {
+                    "description": "JobID is the id the benchmarker submitted under. Hades sends it as\njob_id; the Jenkins notification plugin returns it in\nbuild.parameters.HADES_UUID.",
+                    "type": "string",
+                    "example": "6f1a5b1e-6d1a-4f5f-9d0e-1a2b3c4d5e6f"
+                },
+                "queued_at": {
+                    "description": "QueuedAt, StartedAt and FinishedAt are the system under test's view.\nThey are stored for provenance and are never used to compute latency.",
+                    "type": "string",
+                    "example": "2026-08-21T12:00:00Z"
+                },
+                "reason": {
+                    "description": "Reason optionally explains a non-success terminal state.",
+                    "type": "string",
+                    "example": "ImagePullBackOff: no such image"
+                },
+                "started_at": {
+                    "type": "string",
+                    "example": "2026-08-21T12:00:05Z"
+                },
+                "status": {
+                    "description": "Status is the terminal state. Hades uses Succeeded/Failed/Stopped,\nJenkins uses SUCCESS/FAILURE/UNSTABLE/ABORTED.",
+                    "type": "string",
+                    "example": "Succeeded"
+                }
+            }
+        },
         "main.JobStartTime": {
             "type": "object",
             "properties": {
@@ -505,6 +1180,142 @@
                     "type": "string"
                 },
                 "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "payload.RESTPayload": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "callback_url": {
+                    "description": "Optional per-job destination for forwarding aggregated logs/results. Must be an absolute http/https URL with a host.",
+                    "type": "string",
+                    "format": "uri"
+                },
+                "id": {
+                    "description": "Unique job identifier",
+                    "type": "string"
+                },
+                "metadata": {
+                    "description": "Additional job-level metadata",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "description": "Human-readable job name",
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "Priority level (1=low, 2=medium, 3+=high)",
+                    "type": "integer"
+                },
+                "steps": {
+                    "description": "Ordered list of steps to execute",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/payload.Step"
+                    }
+                },
+                "timestamp": {
+                    "description": "Job creation timestamp",
+                    "type": "string"
+                }
+            }
+        },
+        "payload.Step": {
+            "type": "object",
+            "properties": {
+                "continue_on_error": {
+                    "description": "Whether to continue with the next step if this step fails",
+                    "type": "boolean"
+                },
+                "cpu_limit": {
+                    "description": "CPU limit in millicores (e.g., 1000 = 1 CPU core)",
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "Step execution order (starts at 1)",
+                    "type": "integer"
+                },
+                "image": {
+                    "description": "Container image to use (e.g., \"alpine:latest\")",
+                    "type": "string"
+                },
+                "memory_limit": {
+                    "description": "Memory limit (e.g., \"512M\", \"2G\")",
+                    "type": "string"
+                },
+                "metadata": {
+                    "description": "Step-specific environment variables and metadata",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "description": "Human-readable step name",
+                    "type": "string"
+                },
+                "script": {
+                    "description": "Shell script to execute in the container",
+                    "type": "string"
+                }
+            }
+        },
+        "persister.Run": {
+            "type": "object",
+            "properties": {
+                "benchmarker_version": {
+                    "type": "string"
+                },
+                "commit_hash": {
+                    "type": "string"
+                },
+                "concurrency": {
+                    "type": "integer"
+                },
+                "config_fingerprint": {
+                    "type": "string"
+                },
+                "failed_jobs": {
+                    "type": "integer"
+                },
+                "finished_at_ns": {
+                    "type": "integer"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "rate_per_second": {
+                    "type": "number"
+                },
+                "requested_jobs": {
+                    "type": "integer"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "started_at_ns": {
+                    "type": "integer"
+                },
+                "submitted_jobs": {
+                    "type": "integer"
+                },
+                "target_host": {
+                    "type": "string"
+                },
+                "variant": {
+                    "type": "string"
+                },
+                "workload_id": {
                     "type": "string"
                 }
             }

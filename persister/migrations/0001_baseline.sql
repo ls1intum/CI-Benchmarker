@@ -1,13 +1,12 @@
--- sqlc INPUT ONLY - this file does NOT create the database.
+-- Baseline: the schema as it existed before the measurement-core rework.
 --
--- The schema is created and evolved by persister/migrations/*.sql, applied in
--- order by persister.Migrate. This file exists solely so `sqlc generate` can
--- type-check persister/query.sql, which covers the deprecated legacy tables.
+-- This migration is intentionally written with IF NOT EXISTS so that it is a
+-- no-op against databases that were created by the pre-migration
+-- `schema.sql` bootstrap. Every migration after this one uses plain DDL and is
+-- applied exactly once, tracked in schema_migrations.
 --
--- The measurement core (benchmark_run, job_submission, job_callback, job_event)
--- is not represented here because its queries are hand-written in
--- persister/measurement.go; the batching writer needs transaction control that
--- generated code does not express.
+-- These two tables now serve only the deprecated /v1/start_time and /v1/result
+-- compatibility endpoints. They are NOT the source of publication data.
 
 CREATE TABLE IF NOT EXISTS scheduled_job
 (

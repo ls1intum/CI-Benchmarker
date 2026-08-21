@@ -1,0 +1,14 @@
+-- Schedule slip.
+--
+-- The open-loop pacer computes a release time for every submission from a fixed
+-- schedule. Recording only when a submission actually went out makes it
+-- impossible to tell, after the fact, whether the offered load was the load that
+-- was asked for. If the instrument ever falls behind its own schedule - because
+-- the concurrency cap binds, or the load generator is saturated - that is
+-- coordinated omission, and it has to be visible in the data rather than
+-- silently folded into the latency of the system under test.
+--
+-- scheduled_release_ns is the intended release time on the benchmarker's clock.
+-- submit_time_ns - scheduled_release_ns is the slip, per submission. NULL for
+-- unpaced runs (rate_per_second = 0), which have no schedule to slip against.
+ALTER TABLE job_submission ADD COLUMN scheduled_release_ns INTEGER;
