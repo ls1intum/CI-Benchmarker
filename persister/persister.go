@@ -70,22 +70,35 @@ func resolveDBPath(path string) string {
 	return path
 }
 
-// dsnFor builds the base SQLite DSN for a filesystem path. The path is
-// percent-escaped so that a `?` or `#` in it cannot truncate the URI or be
-// mistaken for a query parameter. SQLite's own URI parser decodes the escapes
-// again, so an absolute path still resolves to that absolute path - which
-// persister_test.go asserts, because getting it wrong would silently write the
-// database outside the mounted volume.
-func dsnFor(path string) string {
-	return "file:" + url.PathEscape(path) + "?_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL&_foreign_keys=on"
+// baseDSNParams are shared by both handles. The reader and the writer must
+// agree on journal mode and busy timeout; only the locking behaviour differs.
+var baseDSNParams = []string{
+	"_journal_mode=WAL",
+	"_busy_timeout=10000",
+	"_synchronous=NORMAL",
+	"_foreign_keys=on",
+}
+
+// dsnFor builds a SQLite DSN for a filesystem path, appending extra parameters
+// to the shared set. Assembling the query from a slice means a caller cannot
+// produce a malformed DSN by getting a separator wrong.
+//
+// The path is percent-escaped so that a `?` or `#` in it cannot truncate the URI
+// or be mistaken for a query parameter. SQLite's own URI parser decodes the
+// escapes again, so an absolute path still resolves to that absolute path -
+// which persister_test.go asserts, because getting it wrong would silently write
+// the database outside the mounted volume.
+func dsnFor(path string, extra ...string) string {
+	params := append(append([]string{}, baseDSNParams...), extra...)
+	return "file:" + url.PathEscape(path) + "?" + strings.Join(params, "&")
 }
 
 // Open creates a persister backed by the SQLite file at path and brings the
 // schema up to date.
 func Open(path string) (*DBPersister, error) {
-	baseDSN := dsnFor(resolveDBPath(path))
+	dbPath := resolveDBPath(path)
 
-	readDB, err := sql.Open("sqlite3", baseDSN)
+	readDB, err := sql.Open("sqlite3", dsnFor(dbPath))
 	if err != nil {
 		return nil, fmt.Errorf("open read pool: %w", err)
 	}
@@ -95,7 +108,7 @@ func Open(path string) (*DBPersister, error) {
 
 	// _txlock=immediate makes the writer take the write lock at BEGIN rather
 	// than upgrading mid-transaction, which is where SQLITE_BUSY comes from.
-	writeDB, err := sql.Open("sqlite3", baseDSN+"&_txlock=immediate")
+	writeDB, err := sql.Open("sqlite3", dsnFor(dbPath, "_txlock=immediate"))
 	if err != nil {
 		_ = readDB.Close()
 		return nil, fmt.Errorf("open write handle: %w", err)

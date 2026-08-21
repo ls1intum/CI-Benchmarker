@@ -329,6 +329,19 @@ func toEpochNanos(v any) *int64 {
 	return nil
 }
 
+// scaleEpoch guesses the unit of a timestamp from its magnitude, because the
+// two accepted payload shapes do not declare one and do not agree with each
+// other. The boundaries separate any real timestamp cleanly: a 2026 instant is
+// ~1.8e9 as seconds, ~1.8e12 as milliseconds, ~1.8e15 as microseconds and
+// ~1.8e18 as nanoseconds, so there are three orders of magnitude of slack on
+// every boundary.
+//
+// It is ambiguous only near the epoch - 1000 is read as 1970-01-01T00:00:01,
+// not as one millisecond - which affects synthetic values rather than anything
+// a system under test would emit. This is acceptable because every value that
+// passes through here lands in a reported_* column: provenance, never a
+// measurement input. No latency is computed from these, so a misread unit
+// cannot move a published number.
 func scaleEpoch(v float64) *int64 {
 	if v <= 0 {
 		return nil
