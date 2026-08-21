@@ -1,10 +1,10 @@
 name: Build
 
 on:
+  # No branch filter: a pull request stacked on another feature branch must
+  # still be tested. Restricting this to main meant a stacked PR ran no checks
+  # at all.
   pull_request:
-    branches:
-      - main
-      - release/*
   push:
     branches:
         - main
