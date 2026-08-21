@@ -196,3 +196,76 @@ func columnTypes(t *testing.T, db *sql.DB, table string) map[string]string {
 	}
 	return types
 }
+
+// An existing campaign database must survive the 0003 upgrade with its rows and
+// its old values intact. The database IS the result; losing it to a migration
+// would be worse than the bug the migration supports.
+func TestUpgradeFrom0002PreservesExistingData(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "campaign.db")
+
+	// Bring a database up to 0002 only.
+	raw, err := sql.Open("sqlite3", dsnFor(path, "_txlock=immediate"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	all, err := LoadMigrations()
+	if err != nil {
+		t.Fatalf("LoadMigrations: %v", err)
+	}
+	ctx := context.Background()
+	for _, m := range all {
+		if m.Version > 2 {
+			continue
+		}
+		if _, err := raw.ExecContext(ctx, m.SQL); err != nil {
+			t.Fatalf("apply %d: %v", m.Version, err)
+		}
+	}
+	if _, err := raw.ExecContext(ctx, `
+CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at_ns INTEGER NOT NULL);
+INSERT INTO schema_migrations (version, name, applied_at_ns) VALUES (1,'baseline',1),(2,'measurement_core',2)`); err != nil {
+		t.Fatalf("seed migration table: %v", err)
+	}
+	if _, err := raw.ExecContext(ctx, `
+INSERT INTO benchmark_run (run_id, variant, target_host, workload_id, config_fingerprint,
+    priority, requested_jobs, concurrency, rate_per_second, started_at_ns)
+VALUES ('old-run','hades-docker','sut.example','java',  'fp', 3, 1, 4, 0, 111)`); err != nil {
+		t.Fatalf("seed run: %v", err)
+	}
+	if _, err := raw.ExecContext(ctx, `
+INSERT INTO job_submission (submission_id, run_id, seq, variant, target_host, workload_id,
+    config_fingerprint, priority, submit_time_ns, submit_status)
+VALUES ('sub-1','old-run',0,'hades-docker','sut.example','java','fp',3,123456789,'accepted')`); err != nil {
+		t.Fatalf("seed submission: %v", err)
+	}
+	raw.Close()
+
+	// Now open normally, which must apply 0003 on top.
+	store, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open after upgrade: %v", err)
+	}
+	defer store.Close()
+
+	var submitTime int64
+	var scheduled *int64
+	if err := store.db.QueryRow(
+		`SELECT submit_time_ns, scheduled_release_ns FROM job_submission WHERE submission_id='sub-1'`,
+	).Scan(&submitTime, &scheduled); err != nil {
+		t.Fatalf("read upgraded row: %v", err)
+	}
+	if submitTime != 123456789 {
+		t.Errorf("submit_time_ns = %d, want the pre-upgrade value preserved", submitTime)
+	}
+	if scheduled != nil {
+		t.Errorf("scheduled_release_ns = %v on a pre-existing row, want NULL", *scheduled)
+	}
+
+	var runs int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM benchmark_run`).Scan(&runs); err != nil {
+		t.Fatalf("count runs: %v", err)
+	}
+	if runs != 1 {
+		t.Errorf("benchmark_run has %d rows after upgrade, want 1", runs)
+	}
+}
