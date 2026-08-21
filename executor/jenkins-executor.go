@@ -1,8 +1,11 @@
 package executor
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -24,6 +27,8 @@ type JenkinsExecutor struct {
 	JobPath       string
 	UseParameters bool
 
+	client *http.Client
+
 	crumbField  string
 	crumbValue  string
 	crumbExpiry time.Time
@@ -35,15 +40,6 @@ type crumbResp struct {
 	CrumbRequestField string `json:"crumbRequestField"`
 }
 
-var jenkinsClient = &http.Client{
-	Timeout: 10 * time.Second,
-	Transport: &http.Transport{
-		MaxIdleConns:        100,
-		MaxConnsPerHost:     100,
-		MaxIdleConnsPerHost: 100,
-	},
-}
-
 func NewJenkinsExecutor(jenkinsURL string, user string, APIToken string, path string, useParameters bool) *JenkinsExecutor {
 	slog.Info("Creating new JenkinsExecutor")
 	return &JenkinsExecutor{
@@ -52,6 +48,7 @@ func NewJenkinsExecutor(jenkinsURL string, user string, APIToken string, path st
 		APIToken:      APIToken,
 		JobPath:       path,
 		UseParameters: useParameters,
+		client:        SharedClient(),
 	}
 }
 
@@ -59,8 +56,7 @@ func (e *JenkinsExecutor) Name() string {
 	return "JenkinsExecutor"
 }
 
-func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, error) {
-	slog.Debug("Executing JenkinsExecutor")
+func (e *JenkinsExecutor) Execute(ctx context.Context, jobPayload payload.RESTPayload) (uuid.UUID, error) {
 
 	// Create UUID for this benchmark job
 	jobUUID := uuid.New()
@@ -75,7 +71,7 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 	}
 
 	// Get Jenkins crumb
-	crumbField, crumbValue, err := e.getCrumb()
+	crumbField, crumbValue, err := e.getCrumb(ctx)
 	if err != nil {
 		slog.Debug("Error while getting Jenkins crumb")
 		return jobUUID, err
@@ -93,7 +89,7 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 		}
 
 		endpoint = e.JenkinsURL + "/" + strings.TrimLeft(e.JobPath, "/") + "/buildWithParameters"
-		req, err = http.NewRequest(http.MethodPost, endpoint, strings.NewReader(params.Encode()))
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(params.Encode()))
 		if err != nil {
 			slog.Debug("Error while creating POST request to Jenkins (parameters)")
 			return jobUUID, err
@@ -102,7 +98,7 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 
 	} else {
 		endpoint = e.JenkinsURL + "/" + strings.TrimLeft(e.JobPath, "/") + "/build"
-		req, err = http.NewRequest(http.MethodPost, endpoint, nil)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
 		if err != nil {
 			slog.Debug("Error while creating POST request to Jenkins (no parameters)")
 			return jobUUID, err
@@ -116,23 +112,32 @@ func (e *JenkinsExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, er
 	}
 
 	// Send request
-	resp, err := jenkinsClient.Do(req)
+	resp, err := e.client.Do(req)
 	if err != nil {
-		slog.Debug("Error while sending POST request to Jenkins")
-		return jobUUID, err
+		return jobUUID, fmt.Errorf("post to jenkins: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
+		_ = resp.Body.Close()
+	}()
 
 	// Validate Jenkins response
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
-		slog.Debug("JenkinsExecutor returned non-201/202 status code", slog.Int("status", resp.StatusCode))
-		return jobUUID, errors.New("JenkinsExecutor returned non-201/202 status code")
+		return jobUUID, fmt.Errorf("jenkins returned status %d, expected 201 or 202", resp.StatusCode)
 	}
 
 	return jobUUID, nil
 }
 
-func (e *JenkinsExecutor) getCrumb() (field string, value string, err error) {
+func (e *JenkinsExecutor) Variant() string {
+	return "jenkins"
+}
+
+func (e *JenkinsExecutor) TargetHost() string {
+	return hostOf(e.JenkinsURL)
+}
+
+func (e *JenkinsExecutor) getCrumb(ctx context.Context) (field string, value string, err error) {
 
 	now := time.Now()
 
@@ -161,13 +166,13 @@ func (e *JenkinsExecutor) getCrumb() (field string, value string, err error) {
 	// -----------------------------
 	slog.Info("Fetching new Jenkins crumb...")
 
-	req, err := http.NewRequest(http.MethodGet, e.JenkinsURL+"/crumbIssuer/api/json", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, e.JenkinsURL+"/crumbIssuer/api/json", nil)
 	if err != nil {
 		return "", "", err
 	}
 	req.SetBasicAuth(e.User, e.APIToken)
 
-	resp, err := jenkinsClient.Do(req)
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return "", "", err
 	}
