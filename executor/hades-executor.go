@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -38,17 +39,24 @@ func (e *HadesExecutor) Execute(jobPayload payload.RESTPayload) (uuid.UUID, erro
 	}
 
 	// schedule job - send the http post request to hades
-	resp, err := http.Post(e.HadesURL, "application/json", bytes.NewBufferString(string(jobPayloadBytes)))
+	resp, err := http.Post(e.HadesURL, "application/json", bytes.NewReader(jobPayloadBytes))
 	if err != nil {
 		slog.Debug("Error while sending POST request to Hades")
 		return uuid.UUID{}, err
 	}
+	// Closed before any early return. The defer used to sit AFTER the non-200
+	// check, so every rejected submission leaked its response body and its
+	// connection; over a long run that degrades the load generator itself,
+	// which is the machine the measurements come from.
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
+		_ = resp.Body.Close()
+	}()
+
 	if resp.StatusCode != http.StatusOK {
 		slog.Debug(fmt.Sprintf("HadesExecutor returned status code %d", resp.StatusCode))
 		return uuid.UUID{}, fmt.Errorf("HadesExecutor returned non-200 status code: %d", resp.StatusCode)
 	}
-	defer resp.Body.Close()
-	slog.Debug("HadesExecutor response", slog.Any("response", resp))
 
 	// Read the response body
 	var result struct {

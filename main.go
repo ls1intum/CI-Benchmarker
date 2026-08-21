@@ -39,6 +39,8 @@ func main() {
 
 	cfg := config.Load()
 
+	slog.Info("CI-Benchmarker starting", slog.String("version", config.Version))
+
 	slog.Debug("Creating DB persister")
 	p = persister.NewDBPersister()
 

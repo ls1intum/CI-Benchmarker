@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -14,10 +15,13 @@ import (
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/Hades-Scheduler/CI-Benchmarker/persister/model"
+	"github.com/Hades-Scheduler/CI-Benchmarker/shared/config"
 	"github.com/google/uuid"
 )
 
-const file string = "benchmark.db"
+// DefaultDBFile is used when DB_PATH is not set.
+const DefaultDBFile = "benchmark.db"
+
 const maxAttempts = 5
 
 // Persister interface
@@ -41,8 +45,26 @@ type DBPersister struct {
 var ddl string
 var ddlOnce sync.Once
 
+// resolveDBPath falls back to DefaultDBFile when DB_PATH is unset.
+func resolveDBPath(path string) string {
+	if path == "" {
+		return DefaultDBFile
+	}
+	return path
+}
+
+// dsnFor builds the SQLite DSN for a filesystem path. The path is
+// percent-escaped so that a `?` or `#` in it cannot truncate the URI or be
+// mistaken for a query parameter. SQLite's own URI parser decodes the escapes
+// again, so an absolute path still resolves to that absolute path - which
+// persister_test.go asserts, because getting it wrong would silently write the
+// database outside the mounted volume.
+func dsnFor(path string) string {
+	return "file:" + url.PathEscape(path) + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
+}
+
 func NewDBPersister() DBPersister {
-	dsn := "file:" + file + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
+	dsn := dsnFor(resolveDBPath(config.Load().DBPath))
 
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {

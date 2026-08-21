@@ -1,10 +1,10 @@
-name: Build Docker Images
+name: Build
 
 on:
+  # No branch filter: a pull request stacked on another feature branch must
+  # still be tested. Restricting this to main meant a stacked PR ran no checks
+  # at all.
   pull_request:
-    branches:
-      - main
-      - release/*
   push:
     branches:
         - main
@@ -13,9 +13,50 @@ on:
     types:
       - created
 
+# Read-only by default. The build job escalates to `packages: write` for itself,
+# so the test job cannot push anything even if a dependency misbehaves.
+permissions:
+  contents: read
+
 jobs:
+  # Gate the image build on the tests. This is a measurement instrument: an
+  # image that fails its own idempotency or timing tests must not be publishable.
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Verify formatting
+      run: |
+        unformatted=$(gofmt -l .)
+        if [ -n "$unformatted" ]; then
+          echo "These files are not gofmt-formatted:"
+          echo "$unformatted"
+          exit 1
+        fi
+
+    - name: go vet
+      run: go vet ./...
+
+    # CGO is required for the SQLite driver.
+    - name: go test
+      env:
+        CGO_ENABLED: 1
+      run: go test -race -timeout 15m ./...
+
   build:
     runs-on: ubuntu-latest
+    needs: test
 
     permissions:
       contents: read
@@ -56,6 +97,8 @@ jobs:
         context: .
         push: true
         platforms: linux/amd64,linux/arm64
+        build-args: |
+          VERSION=${{ github.sha }}
         tags: ${{ steps.meta.outputs.tags }}
 
     - name: Logout from GitHub Container Registry
