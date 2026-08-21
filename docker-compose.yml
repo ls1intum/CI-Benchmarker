@@ -19,7 +19,8 @@ services:
     # silently swap in whatever happens to be in the working tree. There is
     # deliberately no default: a `latest` fallback would let a redeploy change
     # the instrument mid-campaign, which is the failure this line exists to
-    # prevent. Set BENCHMARKER_IMAGE_TAG to a release or commit tag.
+    # prevent. Set BENCHMARKER_IMAGE_TAG to a release or commit tag; the run
+    # rows record the version that produced them.
     image: ghcr.io/hades-scheduler/ci-benchmarker/benchmarker:${BENCHMARKER_IMAGE_TAG:?set BENCHMARKER_IMAGE_TAG to an immutable release or commit tag}
     container_name: benchmarker
     expose:
@@ -34,14 +35,22 @@ services:
       # measurement instrument; the database is the result. Mount the volume
       # elsewhere rather than pointing DB_PATH out of it.
       - DB_PATH=/data/benchmark.db
+      # Where systems under test post terminal status. Must be reachable from
+      # the SUT VMs.
+      - CALLBACK_BASE_URL=${CALLBACK_BASE_URL:-https://${BENCHMARKER_HOST}}
+      - DEFAULT_CONCURRENCY=${DEFAULT_CONCURRENCY:-64}
+      - DEFAULT_RATE_PER_SECOND=${DEFAULT_RATE_PER_SECOND:-0}
+      - HTTP_TIMEOUT_SECONDS=${HTTP_TIMEOUT_SECONDS:-30}
+      - HTTP_MAX_CONNS_PER_HOST=${HTTP_MAX_CONNS_PER_HOST:-0}
       - DEBUG=${DEBUG:-false}
     volumes:
       - benchmark-data:/data
+    # SIGTERM drains queued writes before exit, so an interrupted run still
+    # yields the rows it collected. Give it room to finish.
+    stop_grace_period: 45s
     restart: always
     labels:
       - traefik.enable=true
-      # Was hardcoded to a single TUM hostname, which made the compose file
-      # unusable for anyone else and undeployable to a second load generator.
       - traefik.http.routers.benchmarker.rule=Host(`${BENCHMARKER_HOST}`)
       - traefik.http.routers.benchmarker.entrypoints=web,websecure
       - traefik.http.routers.benchmarker.tls.certresolver=letsencrypt

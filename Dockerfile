@@ -4,15 +4,14 @@ RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
 
-# Dependencies in their own layer so a source-only change does not re-download
-# the whole module graph.
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-# Stamped into the binary so a running deployment can state which build it is.
-# The CI workflow passes the commit SHA.
+# Stamped into the binary and into every benchmark_run row, so a running
+# deployment can state which build it is and exported data records which build
+# produced it. The CI workflow passes the commit SHA.
 ARG VERSION=dev
 
 ENV CGO_ENABLED=1
@@ -23,16 +22,15 @@ RUN go build \
 
 FROM alpine
 
-# Needed to reach systems under test over HTTPS and to interpret timestamps.
 RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
-# Copy only the binary. The previous image copied the entire build context,
-# including sources and the .git-derived build tree.
 COPY --from=builder /out/benchmarker /app/benchmarker
 
-# The database lives on a volume; see docker-compose.yml.
+# The database lives on a volume; see docker-compose.yml. Defaulting DB_PATH
+# here means a bare `docker run` without a mount still works, but writes into
+# the container filesystem.
 ENV DB_PATH=/data/benchmark.db
 VOLUME /data
 
