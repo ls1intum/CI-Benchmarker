@@ -1,9 +1,20 @@
+// Package persister owns the benchmark database.
+//
+// Two schemas live here side by side:
+//
+//   - The measurement core (benchmark_run, job_submission, job_callback,
+//     job_event) is the source of publication data. Timestamps are epoch
+//     nanoseconds stored as INTEGER and taken from the benchmarker's own clock.
+//     See measurement.go.
+//   - The legacy schema (scheduled_job, job_results) backs the deprecated
+//     /v1/start_time and /v1/result endpoints and the old aggregate metrics
+//     endpoints. It is kept so existing databases and dashboards keep working;
+//     nothing new should be built on it. See legacy.go.
 package persister
 
 import (
 	"context"
 	"database/sql"
-	_ "embed"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,37 +26,43 @@ import (
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/Hades-Scheduler/CI-Benchmarker/persister/model"
-	"github.com/Hades-Scheduler/CI-Benchmarker/shared/config"
-	"github.com/google/uuid"
 )
 
-// DefaultDBFile is used when DB_PATH is not set.
+// DefaultDBFile is used when no path is configured.
 const DefaultDBFile = "benchmark.db"
 
 const maxAttempts = 5
 
-// Persister interface
-// This interface is used to store the job and the result of the job
-// This implementation allows to abstract the concrete storage mechanism
-type Persister interface {
-	StoreJobWithMetadata(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string)
-	StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, commitHash *string)
-	StoreStartTime(uuid uuid.UUID, startTime time.Time)
-	StoreResult(uuid uuid.UUID, time time.Time)
-}
+// readPoolSize bounds concurrent readers. In WAL mode readers never block the
+// writer, so the read pool can be wide.
+const readPoolSize = 8
 
-// DBPersister is a concrete implementation of the Persister interface
-// It uses a SQLite database to store the job and the result
+// DBPersister is the SQLite-backed store. One instance is shared process-wide;
+// it holds two connection pools and a writer goroutine, so creating one per
+// HTTP request (as the metrics handlers used to) leaks all three.
+//
+// Reads and writes get separate handles on purpose. They need different
+// transaction semantics: the writer wants BEGIN IMMEDIATE so it takes the write
+// lock up front, while readers must use the default deferred transactions or a
+// long-running read (an export, a histogram query) would hold the write lock
+// and stall every incoming callback behind it. Sharing one handle, as the
+// original db.SetMaxOpenConns(1) configuration did, is what made a concurrent
+// read and a callback burst contend for the same connection.
 type DBPersister struct {
-	db      *sql.DB
+	db      *sql.DB // read pool, deferred transactions
+	writeDB *sql.DB // single connection, BEGIN IMMEDIATE
 	queries *model.Queries
+	writer  *writer
+
+	closeOnce sync.Once
 }
 
-//go:embed schema.sql
-var ddl string
-var ddlOnce sync.Once
+var (
+	defaultMu    sync.Mutex
+	defaultStore *DBPersister
+)
 
-// resolveDBPath falls back to DefaultDBFile when DB_PATH is unset.
+// resolveDBPath falls back to DefaultDBFile when no path is configured.
 func resolveDBPath(path string) string {
 	if path == "" {
 		return DefaultDBFile
@@ -53,72 +70,132 @@ func resolveDBPath(path string) string {
 	return path
 }
 
-// dsnFor builds the SQLite DSN for a filesystem path. The path is
+// dsnFor builds the base SQLite DSN for a filesystem path. The path is
 // percent-escaped so that a `?` or `#` in it cannot truncate the URI or be
 // mistaken for a query parameter. SQLite's own URI parser decodes the escapes
 // again, so an absolute path still resolves to that absolute path - which
 // persister_test.go asserts, because getting it wrong would silently write the
 // database outside the mounted volume.
 func dsnFor(path string) string {
-	return "file:" + url.PathEscape(path) + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
+	return "file:" + url.PathEscape(path) + "?_journal_mode=WAL&_busy_timeout=10000&_synchronous=NORMAL&_foreign_keys=on"
 }
 
-func NewDBPersister() DBPersister {
-	dsn := dsnFor(resolveDBPath(config.Load().DBPath))
+// Open creates a persister backed by the SQLite file at path and brings the
+// schema up to date.
+func Open(path string) (*DBPersister, error) {
+	baseDSN := dsnFor(resolveDBPath(path))
 
-	db, err := sql.Open("sqlite3", dsn)
+	readDB, err := sql.Open("sqlite3", baseDSN)
 	if err != nil {
-		slog.Error("Error while opening DB", slog.Any("error", err))
-		panic(err)
+		return nil, fmt.Errorf("open read pool: %w", err)
 	}
+	readDB.SetMaxOpenConns(readPoolSize)
+	readDB.SetMaxIdleConns(readPoolSize)
+	readDB.SetConnMaxLifetime(0)
 
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	db.SetConnMaxLifetime(0)
+	// _txlock=immediate makes the writer take the write lock at BEGIN rather
+	// than upgrading mid-transaction, which is where SQLITE_BUSY comes from.
+	writeDB, err := sql.Open("sqlite3", baseDSN+"&_txlock=immediate")
+	if err != nil {
+		_ = readDB.Close()
+		return nil, fmt.Errorf("open write handle: %w", err)
+	}
+	writeDB.SetMaxOpenConns(1)
+	writeDB.SetMaxIdleConns(1)
+	writeDB.SetConnMaxLifetime(0)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := db.PingContext(ctx); err != nil {
-		slog.Error("DB ping failed", slog.Any("error", err))
-		panic(err)
+	closeAll := func() {
+		_ = readDB.Close()
+		_ = writeDB.Close()
 	}
 
-	ddlOnce.Do(func() {
-		if _, err := db.ExecContext(ctx, ddl); err != nil {
-			slog.Error("Error while creating table/index", slog.Any("error", err))
-		} else {
-			slog.Info("DB schema ensured")
-		}
-	})
+	if err := readDB.PingContext(ctx); err != nil {
+		closeAll()
+		return nil, fmt.Errorf("ping db: %w", err)
+	}
 
-	queries := model.New(db)
-	return DBPersister{db: db, queries: queries}
+	if _, err := Migrate(ctx, writeDB); err != nil {
+		closeAll()
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
+
+	return &DBPersister{
+		db:      readDB,
+		writeDB: writeDB,
+		queries: model.New(readDB),
+		writer:  newWriter(writeDB),
+	}, nil
 }
+
+// InitDefault opens the process-wide persister. Call once at startup.
+func InitDefault(path string) (*DBPersister, error) {
+	defaultMu.Lock()
+	defer defaultMu.Unlock()
+
+	if defaultStore != nil {
+		return defaultStore, nil
+	}
+
+	store, err := Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defaultStore = store
+	return store, nil
+}
+
+// Default returns the process-wide persister, or nil if InitDefault has not run.
+func Default() *DBPersister {
+	defaultMu.Lock()
+	defer defaultMu.Unlock()
+	return defaultStore
+}
+
+// SetDefault installs a persister as the process-wide one. Intended for tests.
+func SetDefault(p *DBPersister) {
+	defaultMu.Lock()
+	defer defaultMu.Unlock()
+	defaultStore = p
+}
+
+// Close drains queued writes and releases the database.
+func (d *DBPersister) Close() error {
+	var err error
+	d.closeOnce.Do(func() {
+		d.writer.close()
+		err = errors.Join(d.writeDB.Close(), d.db.Close())
+	})
+	return err
+}
+
+// DB exposes the read handle for tests and schema introspection.
+func (d *DBPersister) DB() *sql.DB { return d.db }
 
 func withRetry(op func(ctx context.Context) error) error {
 	var last error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		err := op(ctx)
 		cancel()
 
 		if err == nil {
 			return nil
 		}
-		// only retry if the error is sqlite3.ErrBusy or sqlite3.ErrLocked
 		if isSQLiteBusyOrLocked(err) || isDatabaseLockedMsg(err) {
 			time.Sleep(backoff(attempt))
 			last = err
 			continue
 		}
-		return err // return other errors immediately
+		return err // any other error is not going to fix itself
 	}
-	return fmt.Errorf("retry exhausted: %w", last)
+	return fmt.Errorf("retry exhausted after %d attempts: %w", maxAttempts, last)
 }
 
 func backoff(attempt int) time.Duration {
-	return time.Duration(1<<uint(attempt-1)) * 100 * time.Millisecond
+	return time.Duration(1<<uint(attempt-1)) * 20 * time.Millisecond
 }
 
 func isSQLiteBusyOrLocked(err error) bool {
@@ -137,237 +214,13 @@ func isDatabaseLockedMsg(err error) bool {
 	return strings.Contains(msg, "database is locked") || strings.Contains(msg, "database table is locked")
 }
 
-func (d DBPersister) StoreJobWithMetadata(uuid uuid.UUID, creationTime time.Time, executor string, metaData *string, commitHash *string) {
-	var nullableHash sql.NullString
-	if commitHash != nil {
-		nullableHash = sql.NullString{String: *commitHash, Valid: true}
-	} else {
-		nullableHash = sql.NullString{Valid: false}
+// MustOpenDefault opens the process-wide persister or terminates. Used at
+// startup where continuing without a database is meaningless.
+func MustOpenDefault(path string) *DBPersister {
+	store, err := InitDefault(path)
+	if err != nil {
+		slog.Error("Failed to open benchmark database", slog.String("path", path), slog.Any("error", err))
+		panic(err)
 	}
-
-	nullableMeta := sql.NullString{
-		String: func() string {
-			if metaData != nil {
-				return *metaData
-			}
-			return ""
-		}(),
-		Valid: metaData != nil,
-	}
-
-	params := model.StoreScheduledJobWithMetadataParams{
-		ID:           uuid,
-		CreationTime: creationTime.UTC(),
-		Executor:     executor,
-		Metadata:     nullableMeta,
-		CommitHash:   nullableHash,
-	}
-
-	if err := withRetry(func(ctx context.Context) error {
-		_, err := d.queries.StoreScheduledJobWithMetadata(ctx, params)
-		return err
-	}); err != nil {
-		slog.Error("StoreJob failed",
-			slog.Any("uuid", uuid),
-			slog.Any("executor", executor),
-			slog.Any("error", err),
-		)
-	}
-}
-
-func (d DBPersister) StoreJob(uuid uuid.UUID, creationTime time.Time, executor string, commitHash *string) {
-	var nullableHash sql.NullString
-	if commitHash != nil {
-		nullableHash = sql.NullString{String: *commitHash, Valid: true}
-	} else {
-		nullableHash = sql.NullString{Valid: false}
-	}
-
-	params := model.StoreScheduledJobParams{
-		ID:           uuid,
-		CreationTime: creationTime.UTC(),
-		Executor:     executor,
-		CommitHash:   nullableHash,
-	}
-
-	if err := withRetry(func(ctx context.Context) error {
-		_, err := d.queries.StoreScheduledJob(ctx, params)
-		return err
-	}); err != nil {
-		slog.Error("StoreJob failed",
-			slog.Any("uuid", uuid),
-			slog.Any("executor", executor),
-			slog.Any("error", err),
-		)
-	}
-}
-
-func (d DBPersister) StoreStartTime(uuid uuid.UUID, startTime time.Time) {
-	d.queries.UpsertJobStartTime(context.Background(), model.UpsertJobStartTimeParams{
-		ID: uuid,
-		StartTime: sql.NullTime{
-			Time:  startTime.UTC(),
-			Valid: true,
-		},
-	})
-}
-
-func (d DBPersister) StoreResult(uuid uuid.UUID, endTime time.Time) {
-	d.queries.UpsertJobEndTime(context.Background(), model.UpsertJobEndTimeParams{
-		ID: uuid,
-		EndTime: sql.NullTime{
-			Time:  endTime.UTC(),
-			Valid: true,
-		},
-	})
-}
-
-func (d DBPersister) GetQueueLatenciesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
-	ctx := context.Background()
-
-	params := model.GetQueueLatenciesInRangeByCommitAndExecutorParams{
-		From:       sql.NullTime{Valid: false},
-		To:         sql.NullTime{Valid: false},
-		CommitHash: sql.NullString{Valid: false},
-		Executor:   executor,
-	}
-
-	if from != nil {
-		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
-	}
-	if to != nil {
-		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
-	}
-	if commitHash != nil {
-		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
-	} else {
-		params.CommitHash = sql.NullString{Valid: false}
-	}
-
-	return d.queries.GetQueueLatenciesInRangeByCommitAndExecutor(ctx, params)
-}
-
-func (d DBPersister) GetBuildTimesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
-	ctx := context.Background()
-
-	params := model.GetBuildTimesInRangeByCommitAndExecutorParams{
-		From:       sql.NullTime{Valid: false},
-		To:         sql.NullTime{Valid: false},
-		CommitHash: sql.NullString{Valid: false},
-		Executor:   executor,
-	}
-
-	if from != nil {
-		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
-	}
-	if to != nil {
-		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
-	}
-	if commitHash != nil {
-		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
-	} else {
-		params.CommitHash = sql.NullString{Valid: false}
-	}
-
-	return d.queries.GetBuildTimesInRangeByCommitAndExecutor(ctx, params)
-}
-
-func (d DBPersister) GetQueueLatencySummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
-	ctx := context.Background()
-
-	params := model.GetQueueLatencySummaryInRangeByCommitAndExecutorParams{
-		From:       sql.NullTime{Valid: false},
-		To:         sql.NullTime{Valid: false},
-		CommitHash: sql.NullString{Valid: false},
-		Executor:   executor,
-	}
-
-	if from != nil {
-		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
-	}
-	if to != nil {
-		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
-	}
-	if commitHash != nil {
-		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
-	} else {
-		params.CommitHash = sql.NullString{Valid: false}
-	}
-
-	return d.queries.GetQueueLatencySummaryInRangeByCommitAndExecutor(ctx, params)
-}
-
-func (d DBPersister) GetBuildTimeSummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
-	ctx := context.Background()
-
-	params := model.GetBuildTimeSummaryInRangeByCommitAndExecutorParams{
-		From:       sql.NullTime{Valid: false},
-		To:         sql.NullTime{Valid: false},
-		CommitHash: sql.NullString{Valid: false},
-		Executor:   executor,
-	}
-
-	if from != nil {
-		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
-	}
-	if to != nil {
-		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
-	}
-	if commitHash != nil {
-		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
-	} else {
-		params.CommitHash = sql.NullString{Valid: false}
-	}
-
-	return d.queries.GetBuildTimeSummaryInRangeByCommitAndExecutor(ctx, params)
-}
-
-func (d DBPersister) GetTotalLatenciesInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
-	ctx := context.Background()
-
-	params := model.GetTotalLatenciesInRangeByCommitAndExecutorParams{
-		From:       sql.NullTime{Valid: false},
-		To:         sql.NullTime{Valid: false},
-		CommitHash: sql.NullString{Valid: false},
-		Executor:   executor,
-	}
-
-	if from != nil {
-		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
-	}
-	if to != nil {
-		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
-	}
-	if commitHash != nil {
-		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
-	} else {
-		params.CommitHash = sql.NullString{Valid: false}
-	}
-
-	return d.queries.GetTotalLatenciesInRangeByCommitAndExecutor(ctx, params)
-}
-
-func (d DBPersister) GetTotalLatenciesSummaryInRange(from, to *time.Time, commitHash *string, executor string) ([]int64, error) {
-	ctx := context.Background()
-
-	params := model.GetTotalLatenciesSummaryInRangeByCommitAndExecutorParams{
-		From:       sql.NullTime{Valid: false},
-		To:         sql.NullTime{Valid: false},
-		CommitHash: sql.NullString{Valid: false},
-		Executor:   executor,
-	}
-
-	if from != nil {
-		params.From = sql.NullTime{Time: from.UTC(), Valid: true}
-	}
-	if to != nil {
-		params.To = sql.NullTime{Time: to.UTC(), Valid: true}
-	}
-	if commitHash != nil {
-		params.CommitHash = sql.NullString{String: *commitHash, Valid: true}
-	} else {
-		params.CommitHash = sql.NullString{Valid: false}
-	}
-
-	return d.queries.GetTotalLatenciesSummaryInRangeByCommitAndExecutor(ctx, params)
+	return store
 }
