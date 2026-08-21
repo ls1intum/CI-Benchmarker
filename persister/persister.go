@@ -161,9 +161,21 @@ func InitDefault(path string) (*DBPersister, error) {
 }
 
 // Default returns the process-wide persister, or nil if InitDefault has not run.
+// Default returns the process-wide persister, panicking with a named cause if
+// it has not been installed yet.
+//
+// Returning nil here produced a bare nil dereference several frames away, inside
+// whichever deprecated metrics handler happened to run first, which says nothing
+// about the actual mistake. Only the deprecated aggregate endpoints still reach
+// for the global; everything on the measurement path takes the store as an
+// argument.
 func Default() *DBPersister {
 	defaultMu.Lock()
 	defer defaultMu.Unlock()
+
+	if defaultStore == nil {
+		panic("persister: Default() called before InitDefault/SetDefault installed a store")
+	}
 	return defaultStore
 }
 

@@ -327,6 +327,52 @@ func TestConcurrentWritesDoNotDropRows(t *testing.T) {
 	}
 }
 
+// ExportJobs filters on `(:run_id = ” OR s.run_id = :run_id)`, binding one
+// named parameter to two occurrences. Both branches are exercised here: an empty
+// run id must export every run, a specific one must export exactly that run.
+func TestExportJobsFiltersByRunIDAndExportsAllRunsWhenEmpty(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	seedRun(t, store, "run-a")
+	seedRun(t, store, "run-b")
+
+	for _, spec := range []struct {
+		runID string
+		seq   int
+	}{{"run-a", 0}, {"run-a", 1}, {"run-b", 0}} {
+		jobID := fmt.Sprintf("%s-job-%d", spec.runID, spec.seq)
+		if err := store.RecordSubmission(ctx, Submission{
+			SubmissionID: fmt.Sprintf("%s-s-%d", spec.runID, spec.seq), RunID: spec.runID,
+			Seq: spec.seq, JobID: &jobID, Variant: "hades-docker", TargetHost: "sut",
+			WorkloadID: "w", ConfigFingerprint: "fp", Priority: 3,
+			SubmitTimeNs: int64(spec.seq + 1), SubmitStatus: SubmitStatusAccepted,
+		}); err != nil {
+			t.Fatalf("RecordSubmission: %v", err)
+		}
+	}
+
+	if rows := exportRows(t, store, "run-a"); len(rows) != 2 {
+		t.Errorf("run-a exported %d rows, want 2", len(rows))
+	}
+	if rows := exportRows(t, store, "run-b"); len(rows) != 1 {
+		t.Errorf("run-b exported %d rows, want 1", len(rows))
+	}
+
+	all := exportRows(t, store, "")
+	if len(all) != 3 {
+		t.Errorf("empty run id exported %d rows, want every run (3)", len(all))
+	}
+
+	seen := map[string]bool{}
+	for _, row := range all {
+		seen[row.RunID] = true
+	}
+	if !seen["run-a"] || !seen["run-b"] {
+		t.Errorf("empty run id did not span both runs: %v", seen)
+	}
+}
+
 func exportRows(t *testing.T, store *DBPersister, runID string) []JobRow {
 	t.Helper()
 
