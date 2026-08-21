@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -14,10 +15,13 @@ import (
 	"github.com/mattn/go-sqlite3"
 
 	"github.com/Hades-Scheduler/CI-Benchmarker/persister/model"
+	"github.com/Hades-Scheduler/CI-Benchmarker/shared/config"
 	"github.com/google/uuid"
 )
 
-const file string = "benchmark.db"
+// DefaultDBFile is used when DB_PATH is not set.
+const DefaultDBFile = "benchmark.db"
+
 const maxAttempts = 5
 
 // Persister interface
@@ -42,7 +46,12 @@ var ddl string
 var ddlOnce sync.Once
 
 func NewDBPersister() DBPersister {
-	dsn := "file:" + file + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
+	path := config.Load().DBPath
+	if path == "" {
+		path = DefaultDBFile
+	}
+
+	dsn := "file:" + url.PathEscape(path) + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
 
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {

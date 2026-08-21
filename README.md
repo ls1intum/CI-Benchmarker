@@ -7,18 +7,34 @@
 ## Usage
 
 ```bash
-  docker-compose up
+cp .env.example .env      # set BENCHMARKER_HOST at least
+docker compose up -d
 ```
 
-Use the [bruno](https://www.usebruno.com/) examples in the `docs` folder to test the system
+The database lives in the `benchmark-data` volume rather than in the container
+filesystem, so `--force-recreate` cannot destroy a collected dataset. The
+compose file runs the pinned image; there is deliberately no `build: .`, so a
+redeploy cannot silently swap in whatever is in the working tree.
+
+Use the [bruno](https://www.usebruno.com/) examples in the `bruno` folder to test the system
 
 ## Development
 
 Start in dev mode
 
 ```bash
-  DEBUG=True go run .
+  DEBUG=true go run .
 ```
+
+### Checks
+
+```bash
+gofmt -l .
+go vet ./...
+go test ./...
+```
+
+CI runs all three, and the image build is gated on them passing.
 
 ### Generate Open API spec
 Install swag by using:

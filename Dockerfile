@@ -1,29 +1,33 @@
-# Use an official Go runtime as a parent image
 FROM golang:1.26-alpine AS builder
 
 RUN apk add --no-cache gcc musl-dev
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy files and download dependencies
-COPY . . 
+# Dependencies in their own layer so a source-only change does not re-download
+# the whole module graph.
+COPY go.mod go.sum ./
 RUN go mod download
 
+COPY . .
 
-# Build the Go application
 ENV CGO_ENABLED=1
 
-RUN go build -o benchmarker .
+RUN go build -o /out/benchmarker .
 
-# Start a new stage for the runtime container
 FROM alpine
 
-# Set the working directory inside the minimal runtime container
+# Needed to reach systems under test over HTTPS and to interpret timestamps.
+RUN apk add --no-cache ca-certificates tzdata
+
 WORKDIR /app
 
-# Copy the built binary from the builder container into the minimal runtime container
-COPY --from=builder /app . 
+# Copy only the binary. The previous image copied the entire build context,
+# including sources and the .git-derived build tree.
+COPY --from=builder /out/benchmarker /app/benchmarker
 
-# Run your Go application
+# The database lives on a volume; see docker-compose.yml.
+ENV DB_PATH=/data/benchmark.db
+VOLUME /data
+
 CMD ["/app/benchmarker"]

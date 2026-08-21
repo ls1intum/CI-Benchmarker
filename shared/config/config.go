@@ -10,6 +10,12 @@ import (
 
 type Config struct {
 	ServerAddress string `mapstructure:"SERVER_ADDRESS"`
+
+	// DBPath is where the benchmark database lives. It is configurable so the
+	// container can keep it on a mounted volume: the database is the result of
+	// a measurement campaign, and a `docker compose up --force-recreate` must
+	// not be able to destroy it.
+	DBPath string `mapstructure:"DB_PATH"`
 }
 
 var (
@@ -32,7 +38,11 @@ func Load() Config {
 			slog.Warn("No .env file found or failed to load it", "error", err)
 		}
 
+		viper.SetDefault("SERVER_ADDRESS", "8080")
+		viper.SetDefault("DB_PATH", "benchmark.db")
+
 		_ = viper.BindEnv("SERVER_ADDRESS")
+		_ = viper.BindEnv("DB_PATH")
 
 		if err := viper.Unmarshal(&cfg); err != nil {
 			slog.Error("Failed to unmarshal config", "error", err)
